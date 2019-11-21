@@ -457,8 +457,8 @@ struct AudioProcessor::DuplicateParamIDCheck  : private AsyncUpdater
 void AudioProcessor::triggerDuplicateParamIDCheck()
 {
    #if JUCE_DEBUG
-    if (MessageManager::getInstanceWithoutCreating() != nullptr && duplicateParamIDCheck == nullptr)
-        duplicateParamIDCheck = std::make_unique<DuplicateParamIDCheck> (*this);
+   // if (MessageManager::getInstanceWithoutCreating() != nullptr && duplicateParamIDCheck == nullptr)
+   //     duplicateParamIDCheck = std::make_unique<DuplicateParamIDCheck> (*this);
    #endif
 }
 
