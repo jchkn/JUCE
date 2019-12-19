@@ -281,9 +281,9 @@ public:
         minNumOutputs = jmin (minNumOutputs, maxNumOutputs);
 
         o.content.setOwned (new SettingsComponent (*this, deviceManager,
-                                                          minNumInputs,
+                                                          0,
                                                           maxNumInputs,
-                                                          minNumOutputs,
+                                                          0,
                                                           maxNumOutputs));
         o.content->setSize (500, 550);
 
