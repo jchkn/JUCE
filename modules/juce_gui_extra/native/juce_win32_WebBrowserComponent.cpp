@@ -153,12 +153,12 @@ private:
     {
         EventHandler (WebBrowserComponent& w)  : ComponentMovementWatcher (&w), owner (w) {}
 
-        JUCE_COMRESULT GetTypeInfoCount (UINT*)                                  { return E_NOTIMPL; }
-        JUCE_COMRESULT GetTypeInfo (UINT, LCID, ITypeInfo**)                     { return E_NOTIMPL; }
-        JUCE_COMRESULT GetIDsOfNames (REFIID, LPOLESTR*, UINT, LCID, DISPID*)    { return E_NOTIMPL; }
+        JUCE_COMRESULT GetTypeInfoCount (UINT*) override                                 { return E_NOTIMPL; }
+        JUCE_COMRESULT GetTypeInfo (UINT, LCID, ITypeInfo**) override                    { return E_NOTIMPL; }
+        JUCE_COMRESULT GetIDsOfNames (REFIID, LPOLESTR*, UINT, LCID, DISPID*) override   { return E_NOTIMPL; }
 
         JUCE_COMRESULT Invoke (DISPID dispIdMember, REFIID /*riid*/, LCID /*lcid*/, WORD /*wFlags*/, DISPPARAMS* pDispParams,
-                               VARIANT* /*pVarResult*/, EXCEPINFO* /*pExcepInfo*/, UINT* /*puArgErr*/)
+                               VARIANT* /*pVarResult*/, EXCEPINFO* /*pExcepInfo*/, UINT* /*puArgErr*/) override
         {
             if (dispIdMember == DISPID_BEFORENAVIGATE2)
             {
@@ -187,7 +187,7 @@ private:
                 *pDispParams->rgvarg[0].pboolVal = VARIANT_FALSE;
 
                 // IWebBrowser2 also reports http status codes here, we need
-                // report only network erros
+                // report only network errors
                 if (statusCode < 0)
                 {
                     LPTSTR messageBuffer = nullptr;
