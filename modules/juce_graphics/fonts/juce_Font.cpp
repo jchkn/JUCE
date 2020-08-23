@@ -7,12 +7,11 @@
    JUCE is an open source library subject to commercial or open-source
    licensing.
 
-   By using JUCE, you agree to the terms of both the JUCE 5 End-User License
-   Agreement and JUCE 5 Privacy Policy (both updated and effective as of the
-   22nd April 2020).
+   By using JUCE, you agree to the terms of both the JUCE 6 End-User License
+   Agreement and JUCE Privacy Policy (both effective as of the 16th June 2020).
 
-   End User License Agreement: www.juce.com/juce-5-licence
-   Privacy Policy: www.juce.com/juce-5-privacy-policy
+   End User License Agreement: www.juce.com/juce-6-licence
+   Privacy Policy: www.juce.com/juce-privacy-policy
 
    Or: You may also use this code under the terms of the GPL v3 (see
    www.gnu.org/licenses).
@@ -637,7 +636,7 @@ float Font::getStringWidthFloat (const String& text) const
     auto w = getTypeface()->getStringWidth (text);
 
     if (font->kerning != 0.0f)
-        w += font->kerning * text.length();
+        w += font->kerning * (float) text.length();
 
     return w * font->height * font->horizontalScale;
 }
@@ -658,7 +657,7 @@ void Font::getGlyphPositions (const String& text, Array<int>& glyphs, Array<floa
         if (font->kerning != 0.0f)
         {
             for (int i = 0; i < num; ++i)
-                x[i] = (x[i] + i * font->kerning) * scale;
+                x[i] = (x[i] + (float) i * font->kerning) * scale;
         }
         else
         {
