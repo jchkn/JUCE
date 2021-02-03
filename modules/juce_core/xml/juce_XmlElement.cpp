@@ -63,20 +63,20 @@ XmlElement::XmlAttributeNode::XmlAttributeNode (const XmlAttributeNode& other) n
 XmlElement::XmlAttributeNode::XmlAttributeNode (const Identifier& n, const String& v) noexcept
     : name (n), value (v)
 {
-    jassert (isValidXmlName (name));
+ //   jassert (isValidXmlName (name));
 }
 
 XmlElement::XmlAttributeNode::XmlAttributeNode (String::CharPointerType nameStart, String::CharPointerType nameEnd)
     : name (nameStart, nameEnd)
 {
-    jassert (isValidXmlName (name));
+ //   jassert (isValidXmlName (name));
 }
 
 //==============================================================================
 XmlElement::XmlElement (const String& tag)
     : tagName (StringPool::getGlobalPool().getPooledString (tag))
 {
-    jassert (isValidXmlName (tagName));
+ //   jassert (isValidXmlName (tagName));
 }
 
 XmlElement::XmlElement (const char* tag)
