@@ -23,8 +23,8 @@
   ==============================================================================
 */
 
-#include <juce_core/system/juce_CompilerWarnings.h>
 #include <juce_core/system/juce_TargetPlatform.h>
+#include <juce_core/system/juce_CompilerWarnings.h>
 
 //==============================================================================
 #if JucePlugin_Build_VST3 && (JUCE_MAC || JUCE_WINDOWS || JUCE_LINUX)
@@ -33,7 +33,6 @@
  #if JUCE_MAC
   #include <CoreFoundation/CoreFoundation.h>
  #endif
-
  #undef JUCE_VST3HEADERS_INCLUDE_HEADERS_ONLY
  #define JUCE_VST3HEADERS_INCLUDE_HEADERS_ONLY 1
 #endif
@@ -78,6 +77,10 @@
  #include <unordered_map>
 
  std::vector<std::pair<int, std::function<void (int)>>> getFdReadCallbacks();
+#endif
+
+#if JUCE_MAC
+ #include <juce_core/native/juce_mac_CFHelpers.h>
 #endif
 
 namespace juce
@@ -171,8 +174,8 @@ public:
     {
         if (listIndex == 0)
         {
-            info.id = paramPreset;
-            info.programCount = (Steinberg::int32) audioProcessor->getNumPrograms();
+            info.id = static_cast<Vst::ProgramListID> (programParamID);
+            info.programCount = static_cast<Steinberg::int32> (audioProcessor->getNumPrograms());
 
             toString128 (info.name, TRANS("Factory Presets"));
 
@@ -186,7 +189,7 @@ public:
 
     tresult PLUGIN_API getProgramName (Vst::ProgramListID listId, Steinberg::int32 programIndex, Vst::String128 name) override
     {
-        if (listId == paramPreset
+        if (listId == static_cast<Vst::ProgramListID> (programParamID)
             && isPositiveAndBelow ((int) programIndex, audioProcessor->getNumPrograms()))
         {
             toString128 (name, audioProcessor->getProgramName ((int) programIndex));
@@ -233,7 +236,7 @@ public:
 
     AudioProcessorParameter* getProgramParameter() const noexcept
     {
-        return getParamForVSTParamID (JuceAudioProcessor::paramPreset);
+        return getParamForVSTParamID (programParamID);
     }
 
     static Vst::UnitID getUnitID (const AudioProcessorParameterGroup* group)
@@ -259,7 +262,7 @@ public:
     //==============================================================================
     static const FUID iid;
     Array<Vst::ParamID> vstParamIDs;
-    Vst::ParamID bypassParamID = 0;
+    Vst::ParamID bypassParamID = 0, programParamID = static_cast<Vst::ParamID> (paramPreset);
     bool bypassIsRegularParameter = false;
 
 private:
@@ -352,8 +355,11 @@ private:
 
             juceParameters.params.add (ownedProgramParameter.get());
 
-            vstParamIDs.add (JuceAudioProcessor::paramPreset);
-            paramMap.set (static_cast<int32> (JuceAudioProcessor::paramPreset), ownedProgramParameter.get());
+            if (forceLegacyParamIDs)
+                programParamID = static_cast<Vst::ParamID> (i++);
+
+            vstParamIDs.add (programParamID);
+            paramMap.set (static_cast<int32> (programParamID), ownedProgramParameter.get());
         }
     }
 
@@ -593,11 +599,12 @@ public:
     //==============================================================================
     struct ProgramChangeParameter  : public Vst::Parameter
     {
-        ProgramChangeParameter (AudioProcessor& p)  : owner (p)
+        ProgramChangeParameter (AudioProcessor& p, Vst::ParamID vstParamID)
+            : owner (p)
         {
             jassert (owner.getNumPrograms() > 1);
 
-            info.id = JuceAudioProcessor::paramPreset;
+            info.id = vstParamID;
             toString128 (info.title, "Program");
             toString128 (info.shortTitle, "Program");
             toString128 (info.units, "");
@@ -711,8 +718,8 @@ public:
             {
                 auto paramValue = [&]
                 {
-                    if (vstParamId == JuceAudioProcessor::paramPreset)
-                        return EditController::plainParamToNormalized (JuceAudioProcessor::paramPreset,
+                    if (vstParamId == audioProcessor->programParamID)
+                        return EditController::plainParamToNormalized (audioProcessor->programParamID,
                                                                        pluginInstance->getCurrentProgram());
 
                     return (double) audioProcessor->getParamForVSTParamID (vstParamId)->getValue();
@@ -979,15 +986,15 @@ public:
             if (details.programChanged && audioProcessor->getProgramParameter() != nullptr)
             {
                 auto currentProgram = pluginInstance->getCurrentProgram();
-                auto paramValue = roundToInt (EditController::normalizedParamToPlain (JuceAudioProcessor::paramPreset,
-                                                                                      EditController::getParamNormalized (JuceAudioProcessor::paramPreset)));
+                auto paramValue = roundToInt (EditController::normalizedParamToPlain (audioProcessor->programParamID,
+                                                                                      EditController::getParamNormalized (audioProcessor->programParamID)));
 
                 if (currentProgram != paramValue)
                 {
-                    beginEdit (JuceAudioProcessor::paramPreset);
-                    paramChanged (JuceAudioProcessor::paramPreset,
-                                  EditController::plainParamToNormalized (JuceAudioProcessor::paramPreset, currentProgram));
-                    endEdit (JuceAudioProcessor::paramPreset);
+                    beginEdit (audioProcessor->programParamID);
+                    paramChanged (audioProcessor->programParamID,
+                                  EditController::plainParamToNormalized (audioProcessor->programParamID, currentProgram));
+                    endEdit (audioProcessor->programParamID);
 
                     flags |= Vst::kParamValuesChanged;
                 }
@@ -1093,7 +1100,7 @@ private:
                 {
                     auto vstParamID = audioProcessor->getVSTParamIDForIndex (i);
 
-                    if (vstParamID == JuceAudioProcessor::paramPreset)
+                    if (vstParamID == audioProcessor->programParamID)
                         continue;
 
                     auto* juceParam = audioProcessor->getParamForVSTParamID (vstParamID);
@@ -1108,9 +1115,9 @@ private:
                 {
                     ownedParameterListeners.push_back (std::make_unique<OwnedParameterListener> (*this,
                                                                                                  *programParam,
-                                                                                                 JuceAudioProcessor::paramPreset));
+                                                                                                 audioProcessor->programParamID));
 
-                    parameters.addParameter (new ProgramChangeParameter (*pluginInstance));
+                    parameters.addParameter (new ProgramChangeParameter (*pluginInstance, audioProcessor->programParamID));
                 }
             }
 
@@ -3126,9 +3133,8 @@ bool shutdownModule()
              globalBundleInstance = ref;
              moduleHandle = ref;
 
-             CFURLRef tempURL = CFBundleCopyBundleURL (ref);
-             CFURLGetFileSystemRepresentation (tempURL, true, (UInt8*) modulePath, MaxPathLength);
-             CFRelease (tempURL);
+             CFUniquePtr<CFURLRef> tempURL (CFBundleCopyBundleURL (ref));
+             CFURLGetFileSystemRepresentation (tempURL.get(), true, (UInt8*) modulePath, MaxPathLength);
          }
      }
 
@@ -3371,7 +3377,7 @@ private:
     JUCE_DECLARE_NON_COPYABLE (JucePluginFactory)
 };
 
-} // juce namespace
+} // namespace juce
 
 //==============================================================================
 #ifndef JucePlugin_Vst3ComponentFlags
