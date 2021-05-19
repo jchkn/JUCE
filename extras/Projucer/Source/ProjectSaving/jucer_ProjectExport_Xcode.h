@@ -3129,7 +3129,7 @@ private:
             auto itemPath = projectItem.getFilePath();
             build_tools::RelativePath path;
 
-            if (itemPath.startsWith ("${"))
+            if (itemPath.startsWith ("${") || build_tools::isAbsolutePath (itemPath))
                 path = build_tools::RelativePath (itemPath, build_tools::RelativePath::unknown);
             else
                 path = build_tools::RelativePath (projectItem.getFile(), getTargetFolder(), build_tools::RelativePath::buildTargetFolder);
@@ -3377,7 +3377,7 @@ private:
     {
         std::map<String, String> attributes;
 
-        attributes["LastUpgradeCheck"] = "1240";
+        attributes["LastUpgradeCheck"] = "1250";
         attributes["ORGANIZATIONNAME"] = getProject().getCompanyNameString().quoted();
 
         if (projectType.isGUIApplication() || projectType.isAudioPlugin())
