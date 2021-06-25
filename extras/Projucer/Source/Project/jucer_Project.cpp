@@ -214,7 +214,7 @@ bool Project::setCppVersionFromOldExporterSettings()
         }
     }
 
-    if (highestLanguageStandard != -1 && highestLanguageStandard >= 11)
+    if (highestLanguageStandard >= 14)
     {
         cppStandardValue = highestLanguageStandard;
         return true;
@@ -225,6 +225,9 @@ bool Project::setCppVersionFromOldExporterSettings()
 
 void Project::updateDeprecatedProjectSettings()
 {
+    if (cppStandardValue.get().toString() == "11")
+        cppStandardValue.resetToDefault();
+
     for (ExporterIterator exporter (*this); exporter.next();)
         exporter->updateDeprecatedSettings();
 }
@@ -1514,11 +1517,6 @@ void Project::Item::setID (const String& newID)   { state.setProperty (Ids::ID, 
 
 std::unique_ptr<Drawable> Project::Item::loadAsImageFile() const
 {
-    const MessageManagerLock mml (ThreadPoolJob::getCurrentThreadPoolJob());
-
-    if (! mml.lockWasGained())
-        return nullptr;
-
     if (isValid())
         return Drawable::createFromImageFile (getFile());
 

@@ -453,7 +453,7 @@ function(_juce_add_au_resource_fork shared_code_target au_target)
 
     add_custom_command(OUTPUT "${au_rez_output}"
         COMMAND "${JUCE_XCRUN}" Rez
-            -d "ppc_$ppc" -d "i386_$i386" -d "ppc64_$ppc64" -d "x86_64_$x86_64"
+            -d "ppc_$ppc" -d "i386_$i386" -d "ppc64_$ppc64" -d "x86_64_$x86_64" -d "arm64_$arm64"
             -I "${secret_au_resource_dir}"
             -I "/System/Library/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Versions/A/Headers"
             -I "${CMAKE_OSX_SYSROOT}/System/Library/Frameworks/AudioUnit.framework/Headers"
@@ -501,7 +501,7 @@ function(_juce_add_plugin_wrapper_target format path out_path)
     _juce_add_plugin_definitions("${target_name}" INTERFACE ${format})
     _juce_add_standard_defs("${target_name}")
 
-    target_compile_features("${target_name}" INTERFACE cxx_std_11)
+    target_compile_features("${target_name}" INTERFACE cxx_std_14)
     add_library("juce::${target_name}" ALIAS "${target_name}")
 
     if(format STREQUAL "AUv3")
@@ -922,7 +922,7 @@ function(juce_add_binary_data target)
 
     target_sources(${target} PRIVATE "${binary_file_names}")
     target_include_directories(${target} INTERFACE ${juce_binary_data_folder})
-    target_compile_features(${target} PRIVATE cxx_std_11)
+    target_compile_features(${target} PRIVATE cxx_std_14)
 
     # This fixes an issue where Xcode is unable to find binary data during archive.
     if(CMAKE_GENERATOR STREQUAL "Xcode")
