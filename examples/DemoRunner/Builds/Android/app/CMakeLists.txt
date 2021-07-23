@@ -839,6 +839,7 @@ add_library( ${BINARY_NAME}
     "../../../../../modules/juce_core/memory/juce_WeakReference.h"
     "../../../../../modules/juce_core/misc/juce_ConsoleApplication.cpp"
     "../../../../../modules/juce_core/misc/juce_ConsoleApplication.h"
+    "../../../../../modules/juce_core/misc/juce_Functional.h"
     "../../../../../modules/juce_core/misc/juce_Result.cpp"
     "../../../../../modules/juce_core/misc/juce_Result.h"
     "../../../../../modules/juce_core/misc/juce_RuntimePermissions.cpp"
@@ -1643,6 +1644,7 @@ add_library( ${BINARY_NAME}
     "../../../../../modules/juce_gui_basics/windows/juce_DialogWindow.h"
     "../../../../../modules/juce_gui_basics/windows/juce_DocumentWindow.cpp"
     "../../../../../modules/juce_gui_basics/windows/juce_DocumentWindow.h"
+    "../../../../../modules/juce_gui_basics/windows/juce_MessageBoxOptions.h"
     "../../../../../modules/juce_gui_basics/windows/juce_NativeMessageBox.h"
     "../../../../../modules/juce_gui_basics/windows/juce_ResizableWindow.cpp"
     "../../../../../modules/juce_gui_basics/windows/juce_ResizableWindow.h"
@@ -2624,6 +2626,7 @@ set_source_files_properties("../../../../../modules/juce_core/memory/juce_Single
 set_source_files_properties("../../../../../modules/juce_core/memory/juce_WeakReference.h" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_core/misc/juce_ConsoleApplication.cpp" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_core/misc/juce_ConsoleApplication.h" PROPERTIES HEADER_FILE_ONLY TRUE)
+set_source_files_properties("../../../../../modules/juce_core/misc/juce_Functional.h" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_core/misc/juce_Result.cpp" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_core/misc/juce_Result.h" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_core/misc/juce_RuntimePermissions.cpp" PROPERTIES HEADER_FILE_ONLY TRUE)
@@ -3428,6 +3431,7 @@ set_source_files_properties("../../../../../modules/juce_gui_basics/windows/juce
 set_source_files_properties("../../../../../modules/juce_gui_basics/windows/juce_DialogWindow.h" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_gui_basics/windows/juce_DocumentWindow.cpp" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_gui_basics/windows/juce_DocumentWindow.h" PROPERTIES HEADER_FILE_ONLY TRUE)
+set_source_files_properties("../../../../../modules/juce_gui_basics/windows/juce_MessageBoxOptions.h" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_gui_basics/windows/juce_NativeMessageBox.h" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_gui_basics/windows/juce_ResizableWindow.cpp" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_gui_basics/windows/juce_ResizableWindow.h" PROPERTIES HEADER_FILE_ONLY TRUE)

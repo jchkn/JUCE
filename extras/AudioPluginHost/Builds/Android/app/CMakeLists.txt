@@ -741,6 +741,7 @@ add_library( ${BINARY_NAME}
     "../../../../../modules/juce_core/memory/juce_WeakReference.h"
     "../../../../../modules/juce_core/misc/juce_ConsoleApplication.cpp"
     "../../../../../modules/juce_core/misc/juce_ConsoleApplication.h"
+    "../../../../../modules/juce_core/misc/juce_Functional.h"
     "../../../../../modules/juce_core/misc/juce_Result.cpp"
     "../../../../../modules/juce_core/misc/juce_Result.h"
     "../../../../../modules/juce_core/misc/juce_RuntimePermissions.cpp"
@@ -1545,6 +1546,7 @@ add_library( ${BINARY_NAME}
     "../../../../../modules/juce_gui_basics/windows/juce_DialogWindow.h"
     "../../../../../modules/juce_gui_basics/windows/juce_DocumentWindow.cpp"
     "../../../../../modules/juce_gui_basics/windows/juce_DocumentWindow.h"
+    "../../../../../modules/juce_gui_basics/windows/juce_MessageBoxOptions.h"
     "../../../../../modules/juce_gui_basics/windows/juce_NativeMessageBox.h"
     "../../../../../modules/juce_gui_basics/windows/juce_ResizableWindow.cpp"
     "../../../../../modules/juce_gui_basics/windows/juce_ResizableWindow.h"
@@ -1659,8 +1661,6 @@ add_library( ${BINARY_NAME}
     "../../../../../modules/juce_opengl/juce_opengl.cpp"
     "../../../../../modules/juce_opengl/juce_opengl.mm"
     "../../../../../modules/juce_opengl/juce_opengl.h"
-    "../../../JuceLibraryCode/BinaryData.cpp"
-    "../../../JuceLibraryCode/BinaryData.h"
     "../../../JuceLibraryCode/include_juce_audio_basics.cpp"
     "../../../JuceLibraryCode/include_juce_audio_devices.cpp"
     "../../../JuceLibraryCode/include_juce_audio_formats.cpp"
@@ -2373,6 +2373,7 @@ set_source_files_properties("../../../../../modules/juce_core/memory/juce_Single
 set_source_files_properties("../../../../../modules/juce_core/memory/juce_WeakReference.h" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_core/misc/juce_ConsoleApplication.cpp" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_core/misc/juce_ConsoleApplication.h" PROPERTIES HEADER_FILE_ONLY TRUE)
+set_source_files_properties("../../../../../modules/juce_core/misc/juce_Functional.h" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_core/misc/juce_Result.cpp" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_core/misc/juce_Result.h" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_core/misc/juce_RuntimePermissions.cpp" PROPERTIES HEADER_FILE_ONLY TRUE)
@@ -3177,6 +3178,7 @@ set_source_files_properties("../../../../../modules/juce_gui_basics/windows/juce
 set_source_files_properties("../../../../../modules/juce_gui_basics/windows/juce_DialogWindow.h" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_gui_basics/windows/juce_DocumentWindow.cpp" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_gui_basics/windows/juce_DocumentWindow.h" PROPERTIES HEADER_FILE_ONLY TRUE)
+set_source_files_properties("../../../../../modules/juce_gui_basics/windows/juce_MessageBoxOptions.h" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_gui_basics/windows/juce_NativeMessageBox.h" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_gui_basics/windows/juce_ResizableWindow.cpp" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_gui_basics/windows/juce_ResizableWindow.h" PROPERTIES HEADER_FILE_ONLY TRUE)
@@ -3291,7 +3293,6 @@ set_source_files_properties("../../../../../modules/juce_opengl/utils/juce_OpenG
 set_source_files_properties("../../../../../modules/juce_opengl/juce_opengl.cpp" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_opengl/juce_opengl.mm" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_opengl/juce_opengl.h" PROPERTIES HEADER_FILE_ONLY TRUE)
-set_source_files_properties("../../../JuceLibraryCode/BinaryData.h" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../JuceLibraryCode/JuceHeader.h" PROPERTIES HEADER_FILE_ONLY TRUE)
 
 target_compile_options( ${BINARY_NAME} PRIVATE "-fsigned-char" )
