@@ -2855,7 +2855,7 @@ public:
     {
         if (cocoaWrapper != nullptr)
         {
-            if (isVisible())
+            if (isShowing())
                 openPluginWindow ((NSView*) cocoaWrapper->getView());
             else
                 closePluginWindow();
@@ -2873,6 +2873,8 @@ public:
                 setSize (w, h);
         }
     }
+
+    void parentHierarchyChanged() override { visibilityChanged(); }
    #else
     void paint (Graphics& g) override
     {
@@ -2977,7 +2979,9 @@ public:
     void nativeScaleFactorChanged (double newScaleFactor) override
     {
         setScaleFactorAndDispatchMessage (newScaleFactor);
-        componentMovedOrResized (true, true);
+       #if JUCE_WINDOWS
+        resizeToFit();
+       #endif
     }
 
     void setScaleFactorAndDispatchMessage (double newScaleFactor)
@@ -3278,40 +3282,33 @@ private:
 
     //==============================================================================
    #if JUCE_WINDOWS
-    bool willCauseRecursiveResize (int w, int h)
-    {
-        auto newScreenBounds = Rectangle<int> (w, h).withPosition (getScreenPosition());
-        return Desktop::getInstance().getDisplays().getDisplayForRect (newScreenBounds)->scale != nativeScaleFactor;
-    }
-
     bool isWindowSizeCorrectForPlugin (int w, int h)
     {
-        if (! isShowing() || pluginRefusesToResize)
+        if (pluginRefusesToResize)
             return true;
 
         return (isWithin (w, getWidth(), 5) && isWithin (h, getHeight(), 5));
     }
 
+    void resizeToFit()
+    {
+        Vst2::ERect* rect = nullptr;
+        dispatch (Vst2::effEditGetRect, 0, 0, &rect, 0);
+
+        auto w = roundToInt ((rect->right - rect->left) / nativeScaleFactor);
+        auto h = roundToInt ((rect->bottom - rect->top) / nativeScaleFactor);
+
+        if (! isWindowSizeCorrectForPlugin (w, h))
+        {
+            updateSizeFromEditor (w, h);
+            sizeCheckCount = 0;
+        }
+    }
+
     void checkPluginWindowSize()
     {
         if (! pluginRespondsToDPIChanges)
-        {
-            Vst2::ERect* rect = nullptr;
-            dispatch (Vst2::effEditGetRect, 0, 0, &rect, 0);
-
-            auto w = roundToInt ((rect->right - rect->left) / nativeScaleFactor);
-            auto h = roundToInt ((rect->bottom - rect->top) / nativeScaleFactor);
-
-            if (! isWindowSizeCorrectForPlugin (w, h))
-            {
-                // If plug-in isn't DPI aware then we need to resize our window, but this may cause a recursive resize
-                // so add a check
-                if (! willCauseRecursiveResize (w, h))
-                    updateSizeFromEditor (w, h);
-
-                sizeCheckCount = 0;
-            }
-        }
+            resizeToFit();
     }
 
     // hooks to get keyboard events from VST windows..

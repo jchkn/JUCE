@@ -43,22 +43,30 @@ public:
     ~VST3PluginFormat() override;
 
     //==============================================================================
-    /** Instead of using this function, use AudioPluginInstance::getExtensions()
-        to visit the ExtensionsVisitor::VST3 struct for the instance, if it exists.
-        Then, call ExtensionsVisitor::VST3::setPreset() to set the state using the
-        contents of a vstpreset file.
-
-        Attempts to reload a VST3 plugin's state from some preset file data.
+   #ifndef DOXYGEN
+    /** Attempts to reload a VST3 plugin's state from some preset file data.
 
         @see VSTPluginFormat::loadFromFXBFile
     */
-    JUCE_DEPRECATED (static bool setStateFromVSTPresetFile (AudioPluginInstance*, const MemoryBlock&));
+    [[deprecated ("Instead of using this function, use AudioPluginInstance::getExtensions() "
+                 "to visit the ExtensionsVisitor::VST3 struct for the instance, if it exists. "
+                 "Then, call ExtensionsVisitor::VST3::setPreset() to set the state using the "
+                 "contents of a vstpreset file.")]]
+    static bool setStateFromVSTPresetFile (AudioPluginInstance*, const MemoryBlock&);
+   #endif
 
     //==============================================================================
     static String getFormatName()                   { return "VST3"; }
     String getName() const override                 { return getFormatName(); }
     bool canScanForPlugins() const override         { return true; }
     bool isTrivialToScan() const override           { return false; }
+
+    /** Although there doesn't seem to be any official documentation on the matter,
+        Native Instruments Kontakt VST3 crashes on macOS when its bundleEntry is called on a
+        background thread. To allow this plugin (and other ones with similar problems) to be
+        discovered, it's a good idea to scan VST3 plugins on the main thread.
+    */
+    bool canScanOnBackgroundThread() const override { return false; }
 
     void findAllTypesForFile (OwnedArray<PluginDescription>&, const String& fileOrIdentifier) override;
     bool fileMightContainThisPluginType (const String& fileOrIdentifier) override;
