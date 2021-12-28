@@ -909,7 +909,7 @@ public:
                                                     | kAudioUnitParameterFlag_HasCFNameString
                                                     | kAudioUnitParameterFlag_ValuesHaveStrings);
 
-               #if ! JUCE_FORCE_LEGACY_PARAMETER_AUTOMATION_TYPE
+               #if (! JUCE_FORCE_LEGACY_PARAMETER_AUTOMATION_TYPE ) || JucePlugin_AUHighResolutionParameters
                 outParameterInfo.flags |= (UInt32) kAudioUnitParameterFlag_IsHighResolution;
                #endif
 
