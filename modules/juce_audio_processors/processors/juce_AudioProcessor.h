@@ -87,7 +87,13 @@ public:
     //==============================================================================
     /** Returns the name of this processor. */
     virtual const String getName() const = 0;
-
+    
+    // CK Mod
+    virtual bool getForceAudioUnitHighResolution()
+    {
+        return true;
+    }
+    
     /** Returns a list of alternative names to use for this processor.
 
         Some hosts truncate the name of your AudioProcessor when there isn't enough

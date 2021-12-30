@@ -909,9 +909,14 @@ public:
                                                     | kAudioUnitParameterFlag_HasCFNameString
                                                     | kAudioUnitParameterFlag_ValuesHaveStrings);
 
-               #if (! JUCE_FORCE_LEGACY_PARAMETER_AUTOMATION_TYPE ) || JucePlugin_AUHighResolutionParameters
+               #if (! JUCE_FORCE_LEGACY_PARAMETER_AUTOMATION_TYPE )
                 outParameterInfo.flags |= (UInt32) kAudioUnitParameterFlag_IsHighResolution;
                #endif
+                
+               if (juceFilter->getForceAudioUnitHighResolution())
+               {
+                     outParameterInfo.flags |= (UInt32) kAudioUnitParameterFlag_IsHighResolution;
+               }
 
                 const String name = param->getName (1024);
 
