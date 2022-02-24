@@ -154,7 +154,7 @@ String XWindowSystemUtilities::Atoms::getName (::Display* display, Atom atom)
     if (atom == None)
         return "None";
 
-    return X11Symbols::getInstance()->xGetAtomName (display, atom);
+    return makeXFreePtr (X11Symbols::getInstance()->xGetAtomName (display, atom)).get();
 }
 
 bool XWindowSystemUtilities::Atoms::isMimeTypeFile (::Display* display, Atom atom)
@@ -968,7 +968,9 @@ public:
     void initialiseBitmapData (Image::BitmapData& bitmap, int x, int y,
                                Image::BitmapData::ReadWriteMode mode) override
     {
-        bitmap.data = imageData + x * pixelStride + y * lineStride;
+        const auto offset = (size_t) (x * pixelStride + y * lineStride);
+        bitmap.data = imageData + offset;
+        bitmap.size = (size_t) (lineStride * height) - offset;
         bitmap.pixelFormat = pixelFormat;
         bitmap.lineStride = lineStride;
         bitmap.pixelStride = pixelStride;
@@ -3198,17 +3200,22 @@ void XWindowSystem::destroyXDisplay()
     {
         jassert (display != nullptr);
 
-        XWindowSystemUtilities::ScopedXLock xLock;
+        {
+            XWindowSystemUtilities::ScopedXLock xLock;
 
-        X11Symbols::getInstance()->xDestroyWindow (display, juce_messageWindowHandle);
-        juce_messageWindowHandle = 0;
-        X11Symbols::getInstance()->xSync (display, True);
+            X11Symbols::getInstance()->xDestroyWindow (display, juce_messageWindowHandle);
+            juce_messageWindowHandle = 0;
+            X11Symbols::getInstance()->xSync (display, True);
+        }
 
         LinuxEventLoop::unregisterFdCallback (X11Symbols::getInstance()->xConnectionNumber (display));
 
-        X11Symbols::getInstance()->xCloseDisplay (display);
-        display = nullptr;
-        displayVisuals = nullptr;
+        {
+            XWindowSystemUtilities::ScopedXLock xLock;
+            X11Symbols::getInstance()->xCloseDisplay (display);
+            display = nullptr;
+            displayVisuals = nullptr;
+        }
     }
 }
 

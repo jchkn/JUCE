@@ -758,6 +758,11 @@ public:
        #endif
     }
 
+    ~NativeDarkModeChangeDetectorImpl()
+    {
+        UnhookWindowsHookEx (hook);
+    }
+
     bool isDarkModeEnabled() const noexcept  { return darkModeEnabled; }
 
 private:
@@ -990,7 +995,9 @@ public:
 
     void initialiseBitmapData (Image::BitmapData& bitmap, int x, int y, Image::BitmapData::ReadWriteMode mode) override
     {
-        bitmap.data = imageData + x * pixelStride + y * lineStride;
+        const auto offset = (size_t) (x * pixelStride + y * lineStride);
+        bitmap.data = imageData + offset;
+        bitmap.size = (size_t) (lineStride * height) - offset;
         bitmap.pixelFormat = pixelFormat;
         bitmap.lineStride = lineStride;
         bitmap.pixelStride = pixelStride;
@@ -1993,8 +2000,9 @@ public:
     private:
         Point<float> getMousePos (POINTL mousePos) const
         {
-            return peer.getComponent().getLocalPoint (nullptr, convertPhysicalScreenPointToLogical (pointFromPOINT ({ mousePos.x, mousePos.y }),
-                                                                                                    (HWND) peer.getNativeHandle()).toFloat());
+            const auto originalPos = pointFromPOINT ({ mousePos.x, mousePos.y });
+            const auto logicalPos = convertPhysicalScreenPointToLogical (originalPos, peer.hwnd);
+            return ScalingHelpers::screenPosToLocalPos (peer.component, logicalPos.toFloat());
         }
 
         struct DroppedData
@@ -2406,6 +2414,13 @@ private:
         }
         else
         {
+            TCHAR messageBuffer[256] = {};
+
+            FormatMessage (FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                           nullptr, GetLastError(), MAKELANGID (LANG_NEUTRAL, SUBLANG_DEFAULT),
+                           messageBuffer, (DWORD) numElementsInArray (messageBuffer) - 1, nullptr);
+
+            DBG (messageBuffer);
             jassertfalse;
         }
     }

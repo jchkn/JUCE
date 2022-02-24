@@ -1462,6 +1462,7 @@ add_library( ${BINARY_NAME}
     "../../../../../modules/juce_gui_basics/mouse/juce_MouseInputSource.h"
     "../../../../../modules/juce_gui_basics/mouse/juce_MouseListener.cpp"
     "../../../../../modules/juce_gui_basics/mouse/juce_MouseListener.h"
+    "../../../../../modules/juce_gui_basics/mouse/juce_PointerState.h"
     "../../../../../modules/juce_gui_basics/mouse/juce_SelectedItemSet.h"
     "../../../../../modules/juce_gui_basics/mouse/juce_TextDragAndDropTarget.h"
     "../../../../../modules/juce_gui_basics/mouse/juce_TooltipClient.h"
@@ -1648,6 +1649,7 @@ add_library( ${BINARY_NAME}
     "../../../../../modules/juce_gui_extra/native/juce_mac_AppleRemote.mm"
     "../../../../../modules/juce_gui_extra/native/juce_mac_CarbonViewWrapperComponent.h"
     "../../../../../modules/juce_gui_extra/native/juce_mac_NSViewComponent.mm"
+    "../../../../../modules/juce_gui_extra/native/juce_mac_NSViewFrameWatcher.h"
     "../../../../../modules/juce_gui_extra/native/juce_mac_PushNotifications.cpp"
     "../../../../../modules/juce_gui_extra/native/juce_mac_SystemTrayIcon.cpp"
     "../../../../../modules/juce_gui_extra/native/juce_mac_WebBrowserComponent.mm"
@@ -3131,6 +3133,7 @@ set_source_files_properties("../../../../../modules/juce_gui_basics/mouse/juce_M
 set_source_files_properties("../../../../../modules/juce_gui_basics/mouse/juce_MouseInputSource.h" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_gui_basics/mouse/juce_MouseListener.cpp" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_gui_basics/mouse/juce_MouseListener.h" PROPERTIES HEADER_FILE_ONLY TRUE)
+set_source_files_properties("../../../../../modules/juce_gui_basics/mouse/juce_PointerState.h" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_gui_basics/mouse/juce_SelectedItemSet.h" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_gui_basics/mouse/juce_TextDragAndDropTarget.h" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_gui_basics/mouse/juce_TooltipClient.h" PROPERTIES HEADER_FILE_ONLY TRUE)
@@ -3317,6 +3320,7 @@ set_source_files_properties("../../../../../modules/juce_gui_extra/native/juce_l
 set_source_files_properties("../../../../../modules/juce_gui_extra/native/juce_mac_AppleRemote.mm" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_gui_extra/native/juce_mac_CarbonViewWrapperComponent.h" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_gui_extra/native/juce_mac_NSViewComponent.mm" PROPERTIES HEADER_FILE_ONLY TRUE)
+set_source_files_properties("../../../../../modules/juce_gui_extra/native/juce_mac_NSViewFrameWatcher.h" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_gui_extra/native/juce_mac_PushNotifications.cpp" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_gui_extra/native/juce_mac_SystemTrayIcon.cpp" PROPERTIES HEADER_FILE_ONLY TRUE)
 set_source_files_properties("../../../../../modules/juce_gui_extra/native/juce_mac_WebBrowserComponent.mm" PROPERTIES HEADER_FILE_ONLY TRUE)
