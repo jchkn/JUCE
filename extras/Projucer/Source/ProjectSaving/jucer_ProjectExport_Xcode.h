@@ -2309,8 +2309,26 @@ private:
 
                 target->addBuildPhase ("PBXSourcesBuildPhase", sourceFiles);
 
-                if (! projectType.isStaticLibrary() && target->type != XcodeTarget::SharedCodeTarget)
+                if (! projectType.isStaticLibrary() && target->type != XcodeTarget::SharedCodeTarget) {
+                    switch (target->type) {
+                    case XcodeTarget::VSTPlugIn:
+                    case XcodeTarget::VST3PlugIn:
+                    case XcodeTarget::AudioUnitPlugIn:
+                    case XcodeTarget::AAXPlugIn:
+                        {
+                            std::string frameworksToStrip[] = {"CoreAudioKit"};
+                            for (auto& framework : frameworksToStrip) {
+                                auto idx = target->frameworkNames.indexOf(framework.c_str());
+                                if (idx >= 0) {
+                                    target->frameworkNames.remove(idx);
+                                    target->frameworkIDs.remove(idx);
+                                }
+                            }
+                        } break;
+                        default:break;
+                    }
                     target->addBuildPhase ("PBXFrameworksBuildPhase", target->frameworkIDs);
+                }
             }
 
             target->addShellScriptBuildPhase ("Post-build script", getPostBuildScript());
