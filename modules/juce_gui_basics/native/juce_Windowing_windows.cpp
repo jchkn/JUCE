@@ -2643,8 +2643,8 @@ private:
         // The DPI-awareness context of this window and JUCE's hidden message window are different.
         // You normally want these to match otherwise timer events and async messages will happen
         // in a different context to normal HWND messages which can cause issues with UI scaling.
-        //jassert (isPerMonitorDPIAwareWindow (hwnd) == isPerMonitorDPIAwareWindow (juce_messageWindowHandle)
-        //           || isInScopedDPIAwarenessDisabler());
+        jassert (isPerMonitorDPIAwareWindow (hwnd) == isPerMonitorDPIAwareWindow (juce_messageWindowHandle)
+                   || isInScopedDPIAwarenessDisabler());
        #endif
 
         if (hwnd != nullptr)
