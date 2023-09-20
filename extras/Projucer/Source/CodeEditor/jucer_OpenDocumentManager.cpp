@@ -2,15 +2,15 @@
   ==============================================================================
 
    This file is part of the JUCE library.
-   Copyright (c) 2020 - Raw Material Software Limited
+   Copyright (c) 2022 - Raw Material Software Limited
 
    JUCE is an open source library subject to commercial or open-source
    licensing.
 
-   By using JUCE, you agree to the terms of both the JUCE 6 End-User License
-   Agreement and JUCE Privacy Policy (both effective as of the 16th June 2020).
+   By using JUCE, you agree to the terms of both the JUCE 7 End-User License
+   Agreement and JUCE Privacy Policy.
 
-   End User License Agreement: www.juce.com/juce-6-licence
+   End User License Agreement: www.juce.com/juce-7-licence
    Privacy Policy: www.juce.com/juce-privacy-policy
 
    Or: You may also use this code under the terms of the GPL v3 (see
@@ -36,7 +36,7 @@ public:
     UnknownDocument (Project* p, const File& f)
        : project (p), file (f)
     {
-        reloadFromFile();
+        handleReloadFromFile();
     }
 
     //==============================================================================
@@ -57,7 +57,7 @@ public:
     void saveAsync (std::function<void (bool)>) override     {}
     void saveAsAsync (std::function<void (bool)>) override   {}
     bool hasFileBeenModifiedExternally() override            { return fileModificationTime != file.getLastModificationTime(); }
-    void reloadFromFile() override                           { fileModificationTime = file.getLastModificationTime(); }
+    void reloadFromFile() override                           { handleReloadFromFile(); }
     String getName() const override                          { return file.getFileName(); }
     File getFile() const override                            { return file; }
     std::unique_ptr<Component> createEditor() override       { return std::make_unique<ItemPreviewComponent> (file); }
@@ -76,6 +76,8 @@ public:
     }
 
 private:
+    void handleReloadFromFile() { fileModificationTime = file.getLastModificationTime(); }
+
     Project* const project;
     File file;
     Time fileModificationTime;
@@ -176,15 +178,14 @@ void OpenDocumentManager::saveIfNeededAndUserAgrees (OpenDocumentManager::Docume
         return;
     }
 
-    AlertWindow::showYesNoCancelBox (MessageBoxIconType::QuestionIcon,
-                                     TRANS("Closing document..."),
-                                     TRANS("Do you want to save the changes to \"")
-                                         + doc->getName() + "\"?",
-                                     TRANS("Save"),
-                                     TRANS("Discard changes"),
-                                     TRANS("Cancel"),
-                                     nullptr,
-                                     ModalCallbackFunction::create ([parent = WeakReference<OpenDocumentManager> { this }, doc, callback] (int r)
+    auto options = MessageBoxOptions::makeOptionsYesNoCancel (MessageBoxIconType::QuestionIcon,
+                                                              TRANS ("Closing document..."),
+                                                              TRANS ("Do you want to save the changes to \"")
+                                                                  + doc->getName() + "\"?",
+                                                              TRANS ("Save"),
+                                                              TRANS ("Discard changes"),
+                                                              TRANS ("Cancel"));
+    messageBox = AlertWindow::showScopedAsync (options, [parent = WeakReference<OpenDocumentManager> { this }, doc, callback] (int r)
     {
         if (parent == nullptr)
             return;
@@ -204,7 +205,7 @@ void OpenDocumentManager::saveIfNeededAndUserAgrees (OpenDocumentManager::Docume
 
         if (callback != nullptr)
             callback (r == 2 ? FileBasedDocument::savedOk : FileBasedDocument::userCancelledSave);
-    }));
+    });
 }
 
 bool OpenDocumentManager::closeDocumentWithoutSaving (Document* doc)
