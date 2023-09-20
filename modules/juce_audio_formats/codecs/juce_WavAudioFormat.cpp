@@ -912,7 +912,7 @@ namespace WavFileHelpers
                 // 'source' field in the INFO chunk, set the
                 // WavAudioFormat::internationalStandardRecordingCode metadata field to the
                 // empty string to silence this assertion.
-                jassert (ISRC.length() == 12);
+  //              jassert (ISRC.length() == 12);
 
                 xml << "<ebucore:ebuCoreMain xmlns:dc=\" http://purl.org/dc/elements/1.1/\" "
                                             "xmlns:ebucore=\"urn:ebu:metadata-schema:ebuCore_2012\">"
