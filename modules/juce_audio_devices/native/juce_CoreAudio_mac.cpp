@@ -474,7 +474,13 @@ public:
             pa.mScope    = kAudioObjectPropertyScopeWildcard;
             pa.mElement  = juceAudioObjectPropertyElementMain;
 
-            return makeRealAudioWorkgroup (audioObjectGetProperty<os_workgroup_t> (deviceID, pa).value_or (nullptr));
+            if (auto* workgroup = audioObjectGetProperty<os_workgroup_t> (deviceID, pa).value_or (nullptr))
+            {
+                ScopeGuard scope { [&] { os_release (workgroup); } };
+                return makeRealAudioWorkgroup (workgroup);
+            }
+
+            return {};
         }();
        #endif
 
@@ -689,7 +695,7 @@ public:
             scopedProcID = [&self = *this,
                             &lock = callbackLock,
                             nextProcID = ScopedAudioDeviceIOProcID { *this, deviceID, audioIOProc },
-                            deviceID = deviceID]() mutable -> ScopedAudioDeviceIOProcID
+                            dID = deviceID]() mutable -> ScopedAudioDeviceIOProcID
             {
                 // It *looks* like AudioDeviceStart may start the audio callback running, and then
                 // immediately lock an internal mutex.
@@ -703,7 +709,7 @@ public:
                 {
                     const ScopedUnlock su (lock);
 
-                    if (self.OK (AudioDeviceStart (deviceID, procID)))
+                    if (self.OK (AudioDeviceStart (dID, procID)))
                         return std::move (nextProcID);
                 }
 
@@ -1448,7 +1454,7 @@ public:
           outputWrapper (*this, std::move (outputDevice), false)
     {
         if (getAvailableSampleRates().isEmpty())
-            lastError = TRANS("The input and output devices don't share a common sample rate!");
+            lastError = TRANS ("The input and output devices don't share a common sample rate!");
     }
 
     ~AudioIODeviceCombiner() override
@@ -1697,7 +1703,7 @@ public:
                 if (! forwarder.encounteredError() && newCallback != nullptr)
                     newCallback->audioDeviceAboutToStart (this);
                 else if (lastError.isEmpty())
-                    lastError = TRANS("Failed to initialise all requested devices.");
+                    lastError = TRANS ("Failed to initialise all requested devices.");
             }
 
             const ScopedLock sl (callbackLock);
