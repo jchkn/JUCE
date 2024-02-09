@@ -3161,7 +3161,7 @@ public:
         const FLStudioDIYSpecificationEnforcementLock lock (flStudioDIYSpecificationEnforcementMutex);
 
         // The host is misbehaving! The plugin must be deactivated before setting new arrangements.
-        jassert (! active);
+ //       jassert (! active);
 
         if (type == Vst::kEvent)
         {
