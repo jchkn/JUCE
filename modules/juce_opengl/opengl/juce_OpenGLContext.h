@@ -54,6 +54,8 @@ public:
     /** Destructor. */
     ~OpenGLContext();
 
+    bool isAAXJuce6QuickFix = false;
+
     //==============================================================================
     /** Gives the context an OpenGLRenderer to use to do the drawing.
         The object that you give it will not be owned by the context, so it's the caller's
