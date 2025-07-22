@@ -559,7 +559,7 @@ public:
         {
             ++insideToFrontCall;
 
-            if (makeActiveWindow)
+            if (makeActiveWindow && ! inBecomeKeyWindow)
                 [window makeKeyAndOrderFront: nil];
             else
                 [window orderFront: nil];
@@ -1560,7 +1560,9 @@ public:
     {
         if (window != nil && [window canBecomeKeyWindow])
         {
-            [window makeKeyWindow];
+            if (! inBecomeKeyWindow)
+                [window makeKeyWindow];
+            
             [window makeFirstResponder: view];
 
             viewFocusGain();
@@ -1609,7 +1611,7 @@ public:
     bool isZooming = false, isFirstLiveResize = false, textWasInserted = false;
     bool isStretchingTop = false, isStretchingLeft = false, isStretchingBottom = false, isStretchingRight = false;
     bool windowRepresentsFile = false;
-    bool isAlwaysOnTop = false, wasAlwaysOnTop = false;
+    bool isAlwaysOnTop = false, wasAlwaysOnTop = false, inBecomeKeyWindow = false;
     String stringBeingComposed;
     NSNotificationCenter* notificationCenter = nil;
 
@@ -2438,6 +2440,10 @@ private:
 
         if (auto* owner = getOwner (self))
         {
+            jassert (! owner->inBecomeKeyWindow);
+
+            const ScopedValueSetter scope { owner->inBecomeKeyWindow, true };
+            
             if (owner->canBecomeKeyWindow())
             {
                 owner->becomeKeyWindow();
