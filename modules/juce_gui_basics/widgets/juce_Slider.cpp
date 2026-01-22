@@ -574,7 +574,10 @@ public:
             bool shouldBeEditable = editableText && owner.isEnabled();
 
             if (valueBox->isEditable() != shouldBeEditable) // (to avoid changing the single/double click flags unless we need to)
-                valueBox->setEditable (shouldBeEditable);
+            {
+				valueBox->setEditable(shouldBeEditable);
+                valueBox->setWantsKeyboardFocus(owner.getWantsKeyboardFocus()); //  If the slider doesn't want keyboard focus, the editor shouldn't want it either.
+            }
         }
     }
 
