@@ -130,6 +130,8 @@ public:
             if (! approximatelyEqual (nativeScaleFactor, 1.0))
                 bounds = (bounds.toDouble() * nativeScaleFactor).toNearestInt();
 
+            const ScopedThreadDPIAwarenessSetter scope{ nativeWindow->getNativeHandle() };
+
             SetWindowPos ((HWND) nativeWindow->getNativeHandle(), nullptr,
                           bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight(),
                           SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER);
@@ -294,7 +296,18 @@ private:
             safeComponent = Component::SafePointer<Component> (&component);
 
             nativeScaleFactor = peer->getPlatformScaleFactor();
-            updateWindowPosition (peer->getAreaCoveredBy (component));
+
+            // Quickfix: Make inital window one pixel smaller; driver issues opengl?; so next resize will update scale 
+            auto covered = peer->getAreaCoveredBy(component);
+
+            if (covered.getWidth() > 5 && covered.getHeight() > 5)
+            {
+                covered.setSize(covered.getWidth() - 1, covered.getHeight() - 1);
+            };
+                 
+            updateWindowPosition(covered);
+
+
             peer->addScaleFactorListener (this);
         }
 
