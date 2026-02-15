@@ -1,18 +1,22 @@
 /*
   ==============================================================================
 
-   This file is part of the JUCE examples.
-   Copyright (c) 2022 - Raw Material Software Limited
+   This file is part of the JUCE framework examples.
+   Copyright (c) Raw Material Software Limited
 
    The code included in this file is provided under the terms of the ISC license
    http://www.isc.org/downloads/software-support-policy/isc-license. Permission
-   To use, copy, modify, and/or distribute this software for any purpose with or
+   to use, copy, modify, and/or distribute this software for any purpose with or
    without fee is hereby granted provided that the above copyright notice and
    this permission notice appear in all copies.
 
-   THE SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES,
-   WHETHER EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR
-   PURPOSE, ARE DISCLAIMED.
+   THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+   REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+   AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+   INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+   LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+   OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+   PERFORMANCE OF THIS SOFTWARE.
 
   ==============================================================================
 */
@@ -31,7 +35,8 @@
 
  dependencies:     juce_core, juce_data_structures, juce_events, juce_graphics,
                    juce_gui_basics, juce_gui_extra
- exporters:        xcode_mac, vs2022, linux_make, androidstudio, xcode_iphone
+ exporters:        xcode_mac, vs2022, vs2026, linux_make, androidstudio,
+                   xcode_iphone
 
  moduleFlags:      JUCE_STRICT_REFCOUNTEDPOINTER=1
 
@@ -135,47 +140,47 @@ struct SlidersPage final : public Component
         s->setTextValueSuffix (" rels");
 
         sliderArea.removeFromLeft (20);
-        auto horizonalSliderArea = sliderArea.removeFromLeft (180);
+        auto horizontalSliderArea = sliderArea.removeFromLeft (180);
 
         s = createSlider (true);
         s->setSliderStyle (Slider::LinearHorizontal);
         s->setTextBoxStyle (Slider::TextBoxLeft, false, 80, 20);
-        s->setBounds (horizonalSliderArea.removeFromTop (20));
+        s->setBounds (horizontalSliderArea.removeFromTop (20));
 
         s = createSlider (false);
         s->setSliderStyle (Slider::LinearHorizontal);
         s->setTextBoxStyle (Slider::NoTextBox, false, 0, 0);
-        horizonalSliderArea.removeFromTop (20);
-        s->setBounds (horizonalSliderArea.removeFromTop (20));
+        horizontalSliderArea.removeFromTop (20);
+        s->setBounds (horizontalSliderArea.removeFromTop (20));
         s->setPopupDisplayEnabled (true, false, this);
         s->setTextValueSuffix (" nuns required to change a lightbulb");
 
         s = createSlider (false);
         s->setSliderStyle (Slider::LinearHorizontal);
         s->setTextBoxStyle (Slider::TextEntryBoxPosition::TextBoxAbove, false, 70, 20);
-        horizonalSliderArea.removeFromTop (20);
-        s->setBounds (horizonalSliderArea.removeFromTop (50));
+        horizontalSliderArea.removeFromTop (20);
+        s->setBounds (horizontalSliderArea.removeFromTop (50));
         s->setPopupDisplayEnabled (true, false, this);
 
         s = createSlider (false);
         s->setSliderStyle (Slider::IncDecButtons);
         s->setTextBoxStyle (Slider::TextBoxLeft, false, 50, 20);
-        horizonalSliderArea.removeFromTop (20);
-        s->setBounds (horizonalSliderArea.removeFromTop (20));
+        horizontalSliderArea.removeFromTop (20);
+        s->setBounds (horizontalSliderArea.removeFromTop (20));
         s->setIncDecButtonsMode (Slider::incDecButtonsDraggable_Vertical);
 
         s = createSlider (false);
         s->setSliderStyle (Slider::Rotary);
         s->setRotaryParameters (MathConstants<float>::pi * 1.2f, MathConstants<float>::pi * 2.8f, false);
         s->setTextBoxStyle (Slider::TextBoxRight, false, 70, 20);
-        horizonalSliderArea.removeFromTop (15);
-        s->setBounds (horizonalSliderArea.removeFromTop (70));
+        horizontalSliderArea.removeFromTop (15);
+        s->setBounds (horizontalSliderArea.removeFromTop (70));
         s->setTextValueSuffix (" mm");
 
         s = createSlider (false);
         s->setSliderStyle (Slider::LinearBar);
-        horizonalSliderArea.removeFromTop (10);
-        s->setBounds (horizonalSliderArea.removeFromTop (30));
+        horizontalSliderArea.removeFromTop (10);
+        s->setBounds (horizontalSliderArea.removeFromTop (30));
         s->setTextValueSuffix (" gallons");
 
         sliderArea.removeFromLeft (20);
@@ -611,7 +616,7 @@ struct MenuPage final : public Component
         addAndMakeVisible (customItemButton);
         customItemButton.onClick = [&]
         {
-            struct CustomComponent  : public PopupMenu::CustomComponent
+            struct CustomComponent final : public PopupMenu::CustomComponent
             {
                 CustomComponent (int widthIn, int heightIn, Colour backgroundIn)
                     : PopupMenu::CustomComponent (false),
@@ -690,7 +695,7 @@ struct MenuPage final : public Component
     {
         void drawPopupMenuColumnSeparatorWithOptions (Graphics& g,
                                                       const Rectangle<int>& bounds,
-                                                      const PopupMenu::Options& opt)
+                                                      const PopupMenu::Options& opt) override
         {
             if (auto* target = opt.getTargetComponent())
             {
@@ -708,7 +713,7 @@ struct MenuPage final : public Component
             }
         }
 
-        void drawPopupMenuBackgroundWithOptions (Graphics& g, int, int, const PopupMenu::Options& opt)
+        void drawPopupMenuBackgroundWithOptions (Graphics& g, int, int, const PopupMenu::Options& opt) override
         {
             if (auto* target = opt.getTargetComponent())
             {
@@ -717,7 +722,7 @@ struct MenuPage final : public Component
         }
 
         // Return the amount of space that should be left between popup menu columns.
-        int getPopupMenuColumnSeparatorWidthWithOptions (const PopupMenu::Options&)
+        int getPopupMenuColumnSeparatorWidthWithOptions (const PopupMenu::Options&) override
         {
             return 10;
         }
@@ -925,7 +930,7 @@ private:
 
         // Demonstrates how to put a custom component into a toolbar - this one contains
         // a ComboBox.
-        class CustomToolbarComboBox : public ToolbarItemComponent
+        class CustomToolbarComboBox final : public ToolbarItemComponent
         {
         public:
             CustomToolbarComboBox (const int toolbarItemId)
@@ -1113,7 +1118,7 @@ public:
             {
                 auto text = rowElement->getStringAttribute (getAttributeNameForColumnId (columnId));
 
-                widest = jmax (widest, font.getStringWidth (text));
+                widest = jmax (widest, GlyphArrangement::getStringWidthInt (font, text));
             }
         }
 
@@ -1152,7 +1157,7 @@ public:
 
 private:
     TableListBox table;     // the table component itself
-    Font font  { 14.0f };
+    Font font { FontOptions { 14.0f } };
 
     std::unique_ptr<XmlElement> demoData;  // This is the XML document loaded from the embedded file "demo table data.xml"
     XmlElement* columnList = nullptr;     // A pointer to the sub-node of demoData that contains the list of columns
@@ -1161,7 +1166,7 @@ private:
 
     //==============================================================================
     // This is a custom Label component, which we use for the table's editable text columns.
-    class EditableTextCustomComponent  : public Label
+    class EditableTextCustomComponent final : public Label
     {
     public:
         EditableTextCustomComponent (TableDemoComponent& td)  : owner (td)
@@ -1209,7 +1214,7 @@ private:
     //==============================================================================
     // This is a custom component containing a combo box, which we're going to put inside
     // our table's "rating" column.
-    class RatingColumnCustomComponent    : public Component
+    class RatingColumnCustomComponent final : public Component
     {
     public:
         RatingColumnCustomComponent (TableDemoComponent& td)  : owner (td)
@@ -1328,7 +1333,7 @@ public:
 
 private:
     //==============================================================================
-    struct SourceItemListboxContents  : public ListBoxModel
+    struct SourceItemListboxContents final : public ListBoxModel
     {
         // The following methods implement the necessary virtual functions from ListBoxModel,
         // telling the listbox how many rows there are, painting them, etc.
@@ -1366,10 +1371,10 @@ private:
 
     //==============================================================================
     // and this is a component that can have things dropped onto it..
-    class DragAndDropDemoTarget : public Component,
-                                  public DragAndDropTarget,
-                                  public FileDragAndDropTarget,
-                                  public TextDragAndDropTarget
+    class DragAndDropDemoTarget final : public Component,
+                                        public DragAndDropTarget,
+                                        public FileDragAndDropTarget,
+                                        public TextDragAndDropTarget
     {
     public:
         DragAndDropDemoTarget()    {}
@@ -1511,12 +1516,12 @@ private:
 //==============================================================================
 struct DemoTabbedComponent final : public TabbedComponent
 {
-    DemoTabbedComponent (bool isRunningComponenTransformsDemo)
+    DemoTabbedComponent (bool isRunningComponentTransformsDemo)
         : TabbedComponent (TabbedButtonBar::TabsAtTop)
     {
         auto colour = findColour (ResizableWindow::backgroundColourId);
 
-        addTab ("Buttons",     colour, new ButtonsPage (isRunningComponenTransformsDemo), true);
+        addTab ("Buttons",     colour, new ButtonsPage (isRunningComponentTransformsDemo), true);
         addTab ("Sliders",     colour, new SlidersPage(),                                 true);
         addTab ("Toolbars",    colour, new ToolbarDemoComp(),                             true);
         addTab ("Misc",        colour, new MiscPage(),                                    true);
@@ -1524,17 +1529,17 @@ struct DemoTabbedComponent final : public TabbedComponent
         addTab ("Tables",      colour, new TableDemoComponent(),                          true);
         addTab ("Drag & Drop", colour, new DragAndDropDemo(),                             true);
 
-        getTabbedButtonBar().getTabButton (5)->setExtraComponent (new CustomTabButton (isRunningComponenTransformsDemo),
+        getTabbedButtonBar().getTabButton (5)->setExtraComponent (new CustomTabButton (isRunningComponentTransformsDemo),
                                                                   TabBarButton::afterText);
     }
 
     // This is a small star button that is put inside one of the tabs. You can
     // use this technique to create things like "close tab" buttons, etc.
-    class CustomTabButton  : public Component
+    class CustomTabButton final : public Component
     {
     public:
-        CustomTabButton (bool isRunningComponenTransformsDemo)
-            : runningComponenTransformsDemo (isRunningComponenTransformsDemo)
+        CustomTabButton (bool isRunningComponentTransformsDemo)
+            : runningComponentTransformsDemo (isRunningComponentTransformsDemo)
         {
             setSize (20, 20);
         }
@@ -1556,10 +1561,10 @@ struct DemoTabbedComponent final : public TabbedComponent
                                "You can use these to implement things like close-buttons "
                                "or status displays for your tabs.",
                                bubbleMessage,
-                               runningComponenTransformsDemo);
+                               runningComponentTransformsDemo);
         }
     private:
-        bool runningComponenTransformsDemo;
+        bool runningComponentTransformsDemo;
         std::unique_ptr<BubbleMessageComponent> bubbleMessage;
     };
 

@@ -1,24 +1,33 @@
 /*
   ==============================================================================
 
-   This file is part of the JUCE library.
-   Copyright (c) 2022 - Raw Material Software Limited
+   This file is part of the JUCE framework.
+   Copyright (c) Raw Material Software Limited
 
-   JUCE is an open source library subject to commercial or open-source
+   JUCE is an open source framework subject to commercial or open source
    licensing.
 
-   By using JUCE, you agree to the terms of both the JUCE 7 End-User License
-   Agreement and JUCE Privacy Policy.
+   By downloading, installing, or using the JUCE framework, or combining the
+   JUCE framework with any other source code, object code, content or any other
+   copyrightable work, you agree to the terms of the JUCE End User Licence
+   Agreement, and all incorporated terms including the JUCE Privacy Policy and
+   the JUCE Website Terms of Service, as applicable, which will bind you. If you
+   do not agree to the terms of these agreements, we will not license the JUCE
+   framework to you, and you must discontinue the installation or download
+   process and cease use of the JUCE framework.
 
-   End User License Agreement: www.juce.com/juce-7-licence
-   Privacy Policy: www.juce.com/juce-privacy-policy
+   JUCE End User Licence Agreement: https://juce.com/legal/juce-8-licence/
+   JUCE Privacy Policy: https://juce.com/juce-privacy-policy
+   JUCE Website Terms of Service: https://juce.com/juce-website-terms-of-service/
 
-   Or: You may also use this code under the terms of the GPL v3 (see
-   www.gnu.org/licenses).
+   Or:
 
-   JUCE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES, WHETHER
-   EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR PURPOSE, ARE
-   DISCLAIMED.
+   You may also use this code under the terms of the AGPLv3:
+   https://www.gnu.org/licenses/agpl-3.0.en.html
+
+   THE JUCE FRAMEWORK IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL
+   WARRANTIES, WHETHER EXPRESSED OR IMPLIED, INCLUDING WARRANTY OF
+   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, ARE DISCLAIMED.
 
   ==============================================================================
 */
@@ -26,7 +35,7 @@
 namespace juce
 {
 
-class KeyMappingEditorComponent::ChangeKeyButton  : public Button
+class KeyMappingEditorComponent::ChangeKeyButton final : public Button
 {
 public:
     ChangeKeyButton (KeyMappingEditorComponent& kec, CommandID command,
@@ -77,7 +86,7 @@ public:
         }
         else
         {
-            assignNewKey();  // + button pressed..
+            assignNewKey();  // + button pressed
         }
     }
 
@@ -86,13 +95,18 @@ public:
     void fitToContent (const int h) noexcept
     {
         if (keyNum < 0)
+        {
             setSize (h, h);
+        }
         else
-            setSize (jlimit (h * 4, h * 8, 6 + Font ((float) h * 0.6f).getStringWidth (getName())), h);
+        {
+            const auto idealWidth = GlyphArrangement::getStringWidthInt (withDefaultMetrics (FontOptions { (float) h * 0.6f }), getName());
+            setSize (jlimit (h * 4, h * 8, 6 + idealWidth), h);
+        }
     }
 
     //==============================================================================
-    class KeyEntryWindow  : public AlertWindow
+    class KeyEntryWindow final : public AlertWindow
     {
     public:
         KeyEntryWindow (KeyMappingEditorComponent& kec)
@@ -104,7 +118,7 @@ public:
             addButton (TRANS ("OK"), 1);
             addButton (TRANS ("Cancel"), 0);
 
-            // (avoid return + escape keys getting processed by the buttons..)
+            // avoid return + escape keys getting processed by the buttons
             for (auto* child : getChildren())
                 child->setWantsKeyboardFocus (false);
 
@@ -208,7 +222,7 @@ private:
 };
 
 //==============================================================================
-class KeyMappingEditorComponent::ItemComponent  : public Component
+class KeyMappingEditorComponent::ItemComponent final : public Component
 {
 public:
     ItemComponent (KeyMappingEditorComponent& kec, CommandID command)
@@ -276,7 +290,7 @@ private:
 };
 
 //==============================================================================
-class KeyMappingEditorComponent::MappingItem  : public TreeViewItem
+class KeyMappingEditorComponent::MappingItem final : public TreeViewItem
 {
 public:
     MappingItem (KeyMappingEditorComponent& kec, CommandID command)
@@ -298,7 +312,7 @@ private:
 
 
 //==============================================================================
-class KeyMappingEditorComponent::CategoryItem  : public TreeViewItem
+class KeyMappingEditorComponent::CategoryItem final : public TreeViewItem
 {
 public:
     CategoryItem (KeyMappingEditorComponent& kec, const String& name)
@@ -312,7 +326,7 @@ public:
 
     void paintItem (Graphics& g, int width, int height) override
     {
-        g.setFont (Font ((float) height * 0.7f, Font::bold));
+        g.setFont (owner.withDefaultMetrics (FontOptions ((float) height * 0.7f, Font::bold)));
         g.setColour (owner.findColour (KeyMappingEditorComponent::textColourId));
 
         g.drawText (TRANS (categoryName), 2, 0, width - 2, height, Justification::centredLeft, true);
@@ -341,8 +355,8 @@ private:
 };
 
 //==============================================================================
-class KeyMappingEditorComponent::TopLevelItem   : public TreeViewItem,
-                                                  private ChangeListener
+class KeyMappingEditorComponent::TopLevelItem final : public TreeViewItem,
+                                                      private ChangeListener
 {
 public:
     TopLevelItem (KeyMappingEditorComponent& kec)   : owner (kec)

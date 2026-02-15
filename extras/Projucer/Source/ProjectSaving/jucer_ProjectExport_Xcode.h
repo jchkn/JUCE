@@ -1,24 +1,33 @@
 /*
   ==============================================================================
 
-   This file is part of the JUCE library.
-   Copyright (c) 2022 - Raw Material Software Limited
+   This file is part of the JUCE framework.
+   Copyright (c) Raw Material Software Limited
 
-   JUCE is an open source library subject to commercial or open-source
+   JUCE is an open source framework subject to commercial or open source
    licensing.
 
-   By using JUCE, you agree to the terms of both the JUCE 7 End-User License
-   Agreement and JUCE Privacy Policy.
+   By downloading, installing, or using the JUCE framework, or combining the
+   JUCE framework with any other source code, object code, content or any other
+   copyrightable work, you agree to the terms of the JUCE End User Licence
+   Agreement, and all incorporated terms including the JUCE Privacy Policy and
+   the JUCE Website Terms of Service, as applicable, which will bind you. If you
+   do not agree to the terms of these agreements, we will not license the JUCE
+   framework to you, and you must discontinue the installation or download
+   process and cease use of the JUCE framework.
 
-   End User License Agreement: www.juce.com/juce-7-licence
-   Privacy Policy: www.juce.com/juce-privacy-policy
+   JUCE End User Licence Agreement: https://juce.com/legal/juce-8-licence/
+   JUCE Privacy Policy: https://juce.com/juce-privacy-policy
+   JUCE Website Terms of Service: https://juce.com/juce-website-terms-of-service/
 
-   Or: You may also use this code under the terms of the GPL v3 (see
-   www.gnu.org/licenses).
+   Or:
 
-   JUCE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES, WHETHER
-   EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR PURPOSE, ARE
-   DISCLAIMED.
+   You may also use this code under the terms of the AGPLv3:
+   https://www.gnu.org/licenses/agpl-3.0.en.html
+
+   THE JUCE FRAMEWORK IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL
+   WARRANTIES, WHETHER EXPRESSED OR IMPLIED, INCLUDING WARRANTY OF
+   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, ARE DISCLAIMED.
 
   ==============================================================================
 */
@@ -34,27 +43,139 @@ constexpr auto* macOSArch_32BitUniversal = "32BitUniversal";
 constexpr auto* macOSArch_64BitUniversal = "64BitUniversal";
 constexpr auto* macOSArch_64Bit          = "64BitIntel";
 
-static constexpr const char* configGuardTemplate = R"(
-if test "$CONFIGURATION" = "$JUCE_CONFIG_NAME"; then :
-$JUCE_GUARDED_SCRIPT
-fi
-)";
+//==============================================================================
+inline String doubleQuoted (const String& text)
+{
+    return text.quoted();
+}
 
-static constexpr const char* copyPluginScriptTemplate = R"(
-if [ -e "$JUCE_INSTALL_PATH$JUCE_PRODUCT_NAME" ]; then :
-  echo "Destination '$JUCE_INSTALL_PATH$JUCE_PRODUCT_NAME' exists, overwriting"
-  rm -rf "$JUCE_INSTALL_PATH$JUCE_PRODUCT_NAME"
-fi
-mkdir -p "$JUCE_INSTALL_PATH"
-cp -r "$JUCE_SOURCE_BUNDLE" "$JUCE_INSTALL_PATH"
-)";
-
-static constexpr const char* adhocCodeSignTemplate = R"(
-xcrun codesign --verify "$JUCE_FULL_PRODUCT_PATH" || xcrun codesign -f -s - "$JUCE_FULL_PRODUCT_PATH"
-)";
+inline String singleQuoted (const String& text)
+{
+    return text.quoted ('\'');
+}
 
 //==============================================================================
-class XcodeProjectExporter final : public ProjectExporter
+class ScriptBuilder
+{
+public:
+    //==============================================================================
+    ScriptBuilder() = default;
+    explicit ScriptBuilder (int indentIn) : indent (indentIn) {}
+
+    //==============================================================================
+    template <typename... Args>
+    ScriptBuilder& run (const String& command, Args&&... args)
+    {
+        const auto runCommand = StringArray { command, std::forward<Args> (args)... }.joinIntoString (" ");
+        const auto echoCommand = runCommand.replace ("|", "\\|")
+                                           .replace ("&", "\\&")
+                                           .replace ("<", "\\<")
+                                           .replace (">", "\\>");
+
+        return echo ("Running " + echoCommand).insertLine (runCommand);
+    }
+
+    ScriptBuilder& echo (const String& text)
+    {
+        return insertLine ("echo " + text.replace ("\"", "\\\""));
+    }
+
+    ScriptBuilder& remove (const String& path)
+    {
+        return run ("rm -rf", doubleQuoted (path));
+    }
+
+    ScriptBuilder& copy (const String& src, const String& dst)
+    {
+        return run ("ditto", doubleQuoted (src), doubleQuoted (dst));
+    }
+
+    ScriptBuilder& set (const String& variableName, const String& defaultValue = singleQuoted (""))
+    {
+        return insertLine (variableName + "=" + doubleQuoted (defaultValue));
+    }
+
+    //==============================================================================
+    ScriptBuilder& ifThen (const String& condition, const String& then)
+    {
+        jassert (then.isNotEmpty());
+        return insertLine ("if [[ " + condition + " ]]; then")
+              .insertScript (ScriptBuilder { indent + 1 }.insertScript (then).toString())
+              .insertLine ("fi")
+              .insertLine();
+    }
+
+    ScriptBuilder& ifCompare (const String& lhs, const String& rhs, const String& comparison, const String& then)
+    {
+        return ifThen (StringArray { doubleQuoted (lhs), comparison, doubleQuoted (rhs) }.joinIntoString (" "), then);
+    }
+
+    ScriptBuilder& ifEqual (const String& lhs, const String& rhs, const String& then)
+    {
+        return ifCompare (lhs, rhs, "==", then);
+    }
+
+    ScriptBuilder& ifSet (const String& variable, const String& then)
+    {
+        return ifThen ("-n " + doubleQuoted ("${" + variable + "-}"), then);
+    }
+
+    //==============================================================================
+    ScriptBuilder& insertLine (const String& line = {})
+    {
+        constexpr auto spacesPerIndent = 2;
+        script.add ((String::repeatedString (" ", spacesPerIndent * indent) + line).trimEnd());
+        return *this;
+    }
+
+    ScriptBuilder& insertLines (const StringArray& lines)
+    {
+        for (const auto& line : lines)
+            insertLine (line);
+
+        return *this;
+    }
+
+    ScriptBuilder& insertScript (const String& s)
+    {
+        return insertLines (StringArray::fromLines (s.trimEnd()));
+    }
+
+    //==============================================================================
+    bool isEmpty() const
+    {
+        return script.isEmpty();
+    }
+
+    String toString() const
+    {
+        return script.joinIntoString ("\n") + "\n";
+    }
+
+    String toStringWithShellOptions (const String& options) const
+    {
+        if (isEmpty())
+            return {};
+
+        return ScriptBuilder{}.insertLine ("set " + options)
+                              .insertLine()
+                              .insertScript (toString())
+                              .toString();
+    }
+
+    String toStringWithDefaultShellOptions() const
+    {
+        return toStringWithShellOptions ("-euo pipefail");
+    }
+
+private:
+    StringArray script;
+    int indent{};
+};
+
+//==============================================================================
+class XcodeProjectExporter final : public ProjectExporter,
+                                   private MessageBoxQueue::Listener
 {
 public:
     //==============================================================================
@@ -88,6 +209,7 @@ public:
           iosDeviceFamilyValue                         (settings, Ids::iosDeviceFamily,                         getUndoManager(), "1,2"),
           iPhoneScreenOrientationValue                 (settings, Ids::iPhoneScreenOrientation,                 getUndoManager(), getDefaultScreenOrientations(), ","),
           iPadScreenOrientationValue                   (settings, Ids::iPadScreenOrientation,                   getUndoManager(), getDefaultScreenOrientations(), ","),
+          iconComposerIconValue                        (settings, Ids::iconComposerIcon,                        getUndoManager()),
           customXcodeResourceFoldersValue              (settings, Ids::customXcodeResourceFolders,              getUndoManager()),
           customXcassetsFolderValue                    (settings, Ids::customXcassetsFolder,                    getUndoManager()),
           appSandboxValue                              (settings, Ids::appSandbox,                              getUndoManager()),
@@ -97,6 +219,7 @@ public:
           appSandboxHomeDirRWValue                     (settings, Ids::appSandboxHomeDirRW,                     getUndoManager()),
           appSandboxAbsDirROValue                      (settings, Ids::appSandboxAbsDirRO,                      getUndoManager()),
           appSandboxAbsDirRWValue                      (settings, Ids::appSandboxAbsDirRW,                      getUndoManager()),
+          appSandboxExceptionIOKitValue                (settings, Ids::appSandboxExceptionIOKit,                getUndoManager()),
           hardenedRuntimeValue                         (settings, Ids::hardenedRuntime,                         getUndoManager()),
           hardenedRuntimeOptionsValue                  (settings, Ids::hardenedRuntimeOptions,                  getUndoManager(), Array<var>(), ","),
           microphonePermissionNeededValue              (settings, Ids::microphonePermissionNeeded,              getUndoManager()),
@@ -111,6 +234,9 @@ public:
           sendAppleEventsPermissionNeededValue         (settings, Ids::sendAppleEventsPermissionNeeded, getUndoManager()),
           sendAppleEventsPermissionTextValue           (settings, Ids::sendAppleEventsPermissionText, getUndoManager(),
                                                         "This app requires the ability to send Apple events to function correctly."),
+          localNetworkPermissionNeededValue            (settings, Ids::localNetworkPermissionNeeded, getUndoManager()),
+          localNetworkPermissionTextValue              (settings, Ids::localNetworkPermissionText, getUndoManager(),
+                                                        "This app requires access to the local network to function correctly."),
           uiFileSharingEnabledValue                    (settings, Ids::UIFileSharingEnabled,                    getUndoManager()),
           uiSupportsDocumentBrowserValue               (settings, Ids::UISupportsDocumentBrowser,               getUndoManager()),
           uiStatusBarHiddenValue                       (settings, Ids::UIStatusBarHidden,                       getUndoManager()),
@@ -143,6 +269,11 @@ public:
         {
             name = getDisplayNameMac();
             targetLocationValue.setDefault (getDefaultBuildsRootFolder() + getTargetFolderNameMac());
+        }
+
+        if (needsDisplayMessageBox())
+        {
+            messageBoxQueueListenerScope = project.messageBoxQueue.addListener (*this);
         }
     }
 
@@ -224,6 +355,11 @@ public:
         return result;
     }
 
+    StringArray getAppSandboxExceptionIOKitClasses() const
+    {
+        return getCommaOrWhitespaceSeparatedItems (appSandboxExceptionIOKitValue.get());
+    }
+
     Array<var> getValidArchs() const                        { return *validArchsValue.get().getArray(); }
 
     bool isMicrophonePermissionEnabled() const              { return microphonePermissionNeededValue.get(); }
@@ -237,6 +373,9 @@ public:
 
     bool isSendAppleEventsPermissionEnabled() const         { return sendAppleEventsPermissionNeededValue.get(); }
     String getSendAppleEventsPermissionTextString() const   { return sendAppleEventsPermissionTextValue.get(); }
+
+    bool isLocalNetworkPermissionEnabled() const            { return localNetworkPermissionNeededValue.get(); }
+    String getLocalNetworkPermissionTextString() const      { return localNetworkPermissionTextValue.get(); }
 
     bool isInAppPurchasesEnabled() const                    { return iosInAppPurchasesValue.get(); }
     bool isContentSharingEnabled() const                    { return iosContentSharingValue.get(); }
@@ -277,7 +416,6 @@ public:
 
     bool isXcode() const override                           { return true; }
     bool isVisualStudio() const override                    { return false; }
-    bool isCodeBlocks() const override                      { return false; }
     bool isMakefile() const override                        { return false; }
     bool isAndroidStudio() const override                   { return false; }
 
@@ -327,8 +465,35 @@ public:
         return false;
     }
 
+    void createIconComposerProperties (PropertyListBuilder& props)
+    {
+        StringArray choices;
+        Array<var> ids;
+
+        choices.add ("<None>");
+        ids.add (var());
+
+        for (const auto& icon : project.findAllIconComposerItems())
+        {
+            choices.add (icon.name);
+            ids.add (icon.item.getID());
+        }
+
+        String iconComposerTooltip
+        {
+            "Sets an Icon Composer icon to use for the executable. If specified, Xcode versions that "
+            "support this format will use this icon for all platforms, and ignore the Icon (Small) "
+            "and Icon (Large) setting."
+        };
+
+        props.add (new ChoicePropertyComponent (iconComposerIconValue, "Icon (Icon Composer)", choices, ids),
+                   iconComposerTooltip);
+    }
+
     void createExporterProperties (PropertyListBuilder& props) override
     {
+        createIconComposerProperties (props);
+
         if (iOS)
         {
             props.add (new TextPropertyComponent (customXcassetsFolderValue, "Custom Xcassets Folder", 128, false),
@@ -510,7 +675,6 @@ public:
                 { "Temporary Exception: Audio Unit Hosting",                       "temporary-exception.audio-unit-host" },
                 { "Temporary Exception: Global Mach Service",                      "temporary-exception.mach-lookup.global-name" },
                 { "Temporary Exception: Global Mach Service Dynamic Registration", "temporary-exception.mach-register.global-name" },
-                { "Temporary Exception: IOKit User Client Class",                  "temporary-exception.iokit-user-client-class" },
                 { "Temporary Exception: Shared Preference Domain (Read Only)",     "temporary-exception.shared-preference.read-only" },
                 { "Temporary Exception: Shared Preference Domain (Read/Write)",    "temporary-exception.shared-preference.read-write" }
             };
@@ -540,6 +704,14 @@ public:
                            "A list of the corresponding paths (separated by newlines or whitespace). "
                            "See Apple's File Access Temporary Exceptions documentation.");
             }
+
+            props.add (new TextPropertyComponentWithEnablement (appSandboxExceptionIOKitValue,
+                                                                appSandboxValue,
+                                                                "App sandbox temporary exception: additional IOUserClient subclasses",
+                                                                8192,
+                                                                true),
+                       "A list of IOUserClient subclasses to open or to set properties on. "
+                       "See Apple's IOKit User Client Class Temporary Exception documentation.");
 
             props.add (new ChoicePropertyComponent (hardenedRuntimeValue, "Use Hardened Runtime"),
                        "Enable this to use the hardened runtime required for app notarization.");
@@ -593,6 +765,14 @@ public:
         props.add (new TextPropertyComponentWithEnablement (cameraPermissionTextValue, cameraPermissionNeededValue,
                                                             "Camera Access Text", 1024, false),
                    "A short description of why your app requires camera access.");
+
+        props.add (new ChoicePropertyComponent (localNetworkPermissionNeededValue, "Local Network Access"),
+                   "Enable this to allow your app to use the local network. "
+                   "The user of your app will be prompted to grant local network access permissions.");
+
+        props.add (new TextPropertyComponentWithEnablement (localNetworkPermissionTextValue, localNetworkPermissionNeededValue,
+                                                            "Local Network Access Text", 1024, false),
+                   "A short description of why your app requires local network access.");
 
         props.add (new ChoicePropertyComponent (bluetoothPermissionNeededValue, "Bluetooth Access"),
                    "Enable this to allow your app to use Bluetooth on iOS 13.0 and above, and macOS 11.0 and above. "
@@ -781,32 +961,30 @@ public:
             updateOldOrientationSettings();
     }
 
-    void updateDeprecatedSettingsInteractively() override
-    {
-        if (hasInvalidPostBuildScript())
-        {
-            String alertWindowText = iOS ? "Your Xcode (iOS) Exporter settings use an invalid post-build script. Click 'Update' to remove it."
-                                         : "Your Xcode (macOS) Exporter settings use a pre-JUCE 4.2 post-build script to move the plug-in binaries to their plug-in install folders.\n\n"
-                                           "Since JUCE 4.2, this is instead done using \"AU/VST/VST2/AAX Binary Location\" in the Xcode (OS X) configuration settings.\n\n"
-                                           "Click 'Update' to remove the script (otherwise your plug-in may not compile correctly).";
-
-            auto options = MessageBoxOptions::makeOptionsOkCancel (MessageBoxIconType::WarningIcon,
-                                                                   "Project settings: " + project.getDocumentTitle(),
-                                                                   alertWindowText,
-                                                                   "Update",
-                                                                   "Cancel");
-            messageBox = AlertWindow::showScopedAsync (options, [this] (int result)
-            {
-                if (result != 0)
-                    postbuildCommandValue.resetToDefault();
-            });
-        }
-    }
-
     bool hasInvalidPostBuildScript() const
     {
         // check whether the script is identical to the old one that the Introjucer used to auto-generate
-        return (MD5 (getPostBuildScript().toUTF8()).toHexString() == "265ac212a7e734c5bbd6150e1eae18a1");
+        return    ! userAcknowledgedInvalidPostBuildScript
+               && (MD5 (getPostBuildScript().toUTF8()).toHexString() == "265ac212a7e734c5bbd6150e1eae18a1");
+    }
+
+    bool hasDefunctIOKitSetting() const
+    {
+        auto v = appSandboxOptionsValue.get();
+
+        if (! v.isArray())
+        {
+            jassertfalse;
+            return false;
+        }
+
+        return    ! userAcknowledgedDefunctIOKitSetting
+               && v.getArray()->contains ("com.apple.security.temporary-exception.iokit-user-client-class");
+    }
+
+    bool needsDisplayMessageBox() const
+    {
+        return hasInvalidPostBuildScript() || hasDefunctIOKitSetting();
     }
 
     //==============================================================================
@@ -873,18 +1051,18 @@ protected:
             if (iOS)
             {
                 props.add (new TextPropertyComponent (iosBaseSDK, "iOS Base SDK", 8, false),
-                           "The version of the iOS SDK to link against." + sdkInfoString + "9.3.");
+                           "The version of the iOS SDK to link against." + sdkInfoString + "14.4.");
 
                 props.add (new TextPropertyComponent (iosDeploymentTarget, "iOS Deployment Target", 8, false),
-                           "The minimum version of iOS to target." + sdkInfoString + "9.0.");
+                           "The minimum version of iOS to target." + sdkInfoString + "12.0.");
             }
             else
             {
                 props.add (new TextPropertyComponent (macOSBaseSDK, "macOS Base SDK", 8, false),
-                           "The version of the macOS SDK to link against." + sdkInfoString + "10.11.");
+                           "The version of the macOS SDK to link against." + sdkInfoString + "11.1.");
 
                 props.add (new TextPropertyComponent (macOSDeploymentTarget, "macOS Deployment Target", 8, false),
-                           "The minimum version of macOS to target." + sdkInfoString + "10.9.");
+                           "The minimum version of macOS to target." + sdkInfoString + "10.11.");
 
                 props.add (new ChoicePropertyComponent (macOSArchitecture, "macOS Architecture",
                                                         { "Native architecture of build machine", "Standard 32-bit",        "Standard 32/64-bit",     "Standard 64-bit" },
@@ -1068,6 +1246,31 @@ public:
         kJavaResourcesFolder    = 15,
         kXPCServicesFolder      = 16
     };
+
+    std::optional<build_tools::RelativePath> getIconComposerIconBundle() const
+    {
+        const auto iconJson = project.getMainGroup().findItemWithID (settings[Ids::iconComposerIcon]);
+
+        if (! iconJson.isValid())
+            return std::nullopt;
+
+        jassert (iconJson.isFile());
+
+        return build_tools::RelativePath { iconJson.getFile().getParentDirectory(),
+                                           project.getProjectFolder(),
+                                           build_tools::RelativePath::projectFolder };
+    }
+
+    String getAppIconNameOrElse (StringRef fallback) const
+    {
+        if (auto composerBundle = getIconComposerIconBundle())
+            return composerBundle->getFileNameWithoutExtension();
+
+        if (iOS)
+            return "AppIcon";
+
+        return fallback;
+    }
 
     //==============================================================================
     struct XcodeTarget final : build_tools::ProjectType::Target
@@ -1294,9 +1497,7 @@ public:
             }
 
             if (type == XcodeTarget::LV2Helper || type == XcodeTarget::VST3Helper)
-            {
                 return;
-            }
 
             if (type != XcodeTarget::SharedCodeTarget) // everything else depends on the sharedCodeTarget
             {
@@ -1716,10 +1917,11 @@ public:
 
             String gccVersion ("com.apple.compilers.llvm.clang.1_0");
 
+            if (auto appIconName = owner.getAppIconNameOrElse (""); appIconName.isNotEmpty())
+                s.set ("ASSETCATALOG_COMPILER_APPICON_NAME", appIconName);
+
             if (owner.iOS)
             {
-                s.set ("ASSETCATALOG_COMPILER_APPICON_NAME", "AppIcon");
-
                 if (! owner.shouldAddStoryboardToProject())
                     s.set ("ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME", "LaunchImage");
             }
@@ -1767,9 +1969,6 @@ public:
             {
                 StringArray linkerFlags;
                 getLinkerSettings (config, linkerFlags);
-
-                for (const auto& weakFramework : owner.xcodeWeakFrameworks)
-                    linkerFlags.add ("-weak_framework " + weakFramework);
 
                 if (linkerFlags.size() > 0)
                     s.set ("OTHER_LDFLAGS", linkerFlags.joinIntoString (" ").quoted());
@@ -1921,6 +2120,8 @@ public:
             options.bluetoothPermissionText          = owner.getBluetoothPermissionTextString();
             options.sendAppleEventsPermissionEnabled = owner.isSendAppleEventsPermissionEnabled();
             options.sendAppleEventsPermissionText    = owner.getSendAppleEventsPermissionTextString();
+            options.localNetworkPermissionEnabled    = owner.isLocalNetworkPermissionEnabled();
+            options.localNetworkPermissionText       = owner.getLocalNetworkPermissionTextString();
             options.shouldAddStoryboardToProject     = owner.shouldAddStoryboardToProject();
             options.iconFile                         = owner.iconFile;
             options.projectName                      = owner.projectName;
@@ -1971,17 +2172,17 @@ public:
         //==============================================================================
         void addShellScriptBuildPhase (const String& phaseName, const String& script)
         {
-            if (script.trim().isNotEmpty())
-            {
-                auto v = addBuildPhase ("PBXShellScriptBuildPhase", {});
-                v.setProperty (Ids::name, phaseName, nullptr);
-                v.setProperty ("alwaysOutOfDate", 1, nullptr);
-                v.setProperty ("shellPath", "/bin/sh", nullptr);
-                v.setProperty ("shellScript", script.replace ("\\", "\\\\")
-                                                    .replace ("\"", "\\\"")
-                                                    .replace ("\r\n", "\\n")
-                                                    .replace ("\n", "\\n"), nullptr);
-            }
+            if (script.trim().isEmpty())
+                return;
+
+            auto v = addBuildPhase ("PBXShellScriptBuildPhase", {});
+            v.setProperty (Ids::name, phaseName, nullptr);
+            v.setProperty ("alwaysOutOfDate", 1, nullptr);
+            v.setProperty ("shellPath", "/bin/sh", nullptr);
+            v.setProperty ("shellScript", script.replace ("\\", "\\\\")
+                                                .replace ("\"", "\\\"")
+                                                .replace ("\r\n", "\\n")
+                                                .replace ("\n", "\\n"), nullptr);
         }
 
         void addCopyFilesPhase (const String& phaseName, const StringArray& files, XcodeCopyFilesDestinationIDs dst)
@@ -2067,12 +2268,17 @@ public:
 
 private:
     //==============================================================================
+    static String replaceHomeTildeInPath (const String& path)
+    {
+        return path.startsWithChar ('~') ? "$(HOME)" + path.substring (1)
+                                         : path;
+    }
+
     static String expandPath (const String& path)
     {
         if (! build_tools::isAbsolutePath (path))  return "$(SRCROOT)/" + path;
-        if (path.startsWithChar ('~'))             return "$(HOME)" + path.substring (1);
 
-        return path;
+        return replaceHomeTildeInPath (path);
     }
 
     static String addQuotesIfRequired (const String& s)
@@ -2081,6 +2287,62 @@ private:
     }
 
     File getProjectBundle() const                 { return getTargetFolder().getChildFile (project.getProjectFilenameRootString()).withFileExtension (".xcodeproj"); }
+
+    void canCreateMessageBox (CreatorFunction f) override
+    {
+        if (hasInvalidPostBuildScript())
+        {
+            String alertWindowText = iOS ? "Your Xcode (iOS) Exporter settings use an invalid post-build script. Click 'Update' to remove it."
+                                         : "Your Xcode (macOS) Exporter settings use a pre-JUCE 4.2 post-build script to move the plug-in binaries to their plug-in install folders.\n\n"
+                                           "Since JUCE 4.2, this is instead done using \"AU/VST/VST2/AAX Binary Location\" in the Xcode (OS X) configuration settings.\n\n"
+                                           "Click 'Update' to remove the script (otherwise your plug-in may not compile correctly).";
+
+            auto options = MessageBoxOptions::makeOptionsOkCancel (MessageBoxIconType::WarningIcon,
+                                                                   "Project settings: " + project.getDocumentTitle(),
+                                                                   alertWindowText,
+                                                                   "Update",
+                                                                   "Cancel");
+
+            messageBox = f (options, [this] (int result)
+                            {
+                                userAcknowledgedInvalidPostBuildScript = true;
+
+                                if (result != 0)
+                                    postbuildCommandValue.resetToDefault();
+
+                                if (! needsDisplayMessageBox())
+                                    messageBoxQueueListenerScope.reset();
+                            });
+        }
+        else if (hasDefunctIOKitSetting())
+        {
+            String alertWindowText = "Your Xcode (macOS) Exporter settings use a defunct, boolean value for the iokit-user-client-class temporary exception entitlement.\n\n"
+                                     "If you need this entitlement, add the IOUserClient subclasses to the new IOKit exception related field.\n\n"
+                                     "For more information see Apple's IOKit User Client Class Temporary Exception documentation.\n\n"
+                                     "Clicking 'Update' will remove the defunct setting from your project.";
+
+            auto options = MessageBoxOptions::makeOptionsOkCancel (MessageBoxIconType::WarningIcon,
+                                                                   "Project settings: " + project.getDocumentTitle(),
+                                                                   alertWindowText,
+                                                                   "Update",
+                                                                   "Cancel");
+
+            messageBox = f (std::move (options), [this] (int result)
+                                                 {
+                                                     userAcknowledgedDefunctIOKitSetting = true;
+
+                                                     if (result != 0)
+                                                     {
+                                                         auto v = appSandboxOptionsValue.get();
+                                                         v.getArray()->removeAllInstancesOf ("com.apple.security.temporary-exception.iokit-user-client-class");
+                                                         appSandboxOptionsValue.setValue (v, nullptr);
+                                                     }
+
+                                                     if (! needsDisplayMessageBox())
+                                                         messageBoxQueueListenerScope.reset();
+                                                 });
+        }
+    }
 
     //==============================================================================
     void createObjects() const
@@ -2146,28 +2408,22 @@ private:
 
             target->addMainBuildProduct();
 
-            if (target->type == XcodeTarget::LV2Helper
-                && project.getEnabledModules().isModuleEnabled ("juce_audio_plugin_client"))
+            if (project.getEnabledModules().isModuleEnabled ("juce_audio_plugin_client"))
             {
-                const auto path = rebaseFromProjectFolderToBuildTarget (getLV2HelperProgramSource());
-                addFile (FileOptions().withRelativePath ({ expandPath (path.toUnixStyle()), path.getRoot() })
-                                      .withSkipPCHEnabled (true)
-                                      .withCompilationEnabled (true)
-                                      .withInhibitWarningsEnabled (true)
-                                      .withCompilerFlags ("-std=c++11")
-                                      .withXcodeTarget (target));
-            }
+                auto getFileOptions = [this, target] (const build_tools::RelativePath& path)
+                {
+                    const auto rebasedPath = rebaseFromProjectFolderToBuildTarget (path);
+                    return FileOptions().withRelativePath ({ replaceHomeTildeInPath (rebasedPath.toUnixStyle()), rebasedPath.getRoot() })
+                                        .withSkipPCHEnabled (true)
+                                        .withCompilationEnabled (true)
+                                        .withInhibitWarningsEnabled (true)
+                                        .withXcodeTarget (target);
+                };
 
-            if (target->type == XcodeTarget::VST3Helper
-                && project.getEnabledModules().isModuleEnabled ("juce_audio_plugin_client"))
-            {
-                const auto path = rebaseFromProjectFolderToBuildTarget (getVST3HelperProgramSource());
-                addFile (FileOptions().withRelativePath ({ expandPath (path.toUnixStyle()), path.getRoot() })
-                                      .withSkipPCHEnabled (true)
-                                      .withCompilationEnabled (true)
-                                      .withInhibitWarningsEnabled (true)
-                                      .withCompilerFlags ("-std=c++17 -fobjc-arc")
-                                      .withXcodeTarget (target));
+                if (target->type == XcodeTarget::LV2Helper)
+                    addFile (getFileOptions (getLV2HelperProgramSource()));
+                else if (target->type == XcodeTarget::VST3Helper)
+                    addFile (getFileOptions (getVST3HelperProgramSource()));
             }
 
             auto targetName = String (target->getName());
@@ -2221,6 +2477,17 @@ private:
             addFileReference (iconPath.toUnixStyle());
             resourceIDs.add (addBuildFile (FileOptions().withRelativePath (iconPath)));
             resourceFileRefs.add (createFileRefID (iconPath));
+        }
+
+        if (auto iconComposerBundle = getIconComposerIconBundle())
+        {
+            const auto iconComposerPath = iconComposerBundle->rebased (project.getProjectFolder(),
+                                                                       getTargetFolder(),
+                                                                       build_tools::RelativePath::buildTargetFolder);
+
+            addFileReference (iconComposerPath.toUnixStyle());
+            resourceIDs.add (addBuildFile (FileOptions().withRelativePath (iconComposerPath)));
+            resourceFileRefs.add (createFileRefID (iconComposerPath));
         }
     }
 
@@ -2364,41 +2631,31 @@ private:
                 }
             }
 
-            // When building LV2 and VST3 plugins on Arm macs, we need to load and run the plugin
-            // bundle during a post-build step in order to generate the plugin's supporting files.
-            // Arm macs will only load shared libraries if they are signed, but Xcode runs its
-            // signing step after any post-build scripts. As a workaround, we check whether the
-            // plugin is signed and generate an adhoc certificate if necessary, before running
-            // the manifest-generator.
             if (target->type == XcodeTarget::VST3PlugIn || target->type == XcodeTarget::LV2PlugIn)
             {
-                String script = "set -e\n";
-
-                // Delete manifest if it's left over from an old build
-                if (target->type == XcodeTarget::VST3PlugIn)
-                    script << "rm -f \"$CONFIGURATION_BUILD_DIR/$FULL_PRODUCT_NAME/Contents/moduleinfo.json\"\n";
-
-                // Sign the bundle so that it can be loaded by the manifest generator tools
-                script << String { adhocCodeSignTemplate }.replace ("$JUCE_FULL_PRODUCT_PATH",
-                                                                    "$CONFIGURATION_BUILD_DIR/$FULL_PRODUCT_NAME");
+                ScriptBuilder script;
 
                 if (target->type == XcodeTarget::LV2PlugIn)
                 {
+                    // When building LV2 plugins on Arm macs, we need to load and run the plugin bundle
+                    // during a post-build step in order to generate the plugin's supporting files.
+                    // Arm macs will only load shared libraries if they are signed, but Xcode runs its
+                    // signing step after any post-build scripts. As a workaround, we sign the plugin
+                    // using an adhoc certificate.
+
                     // Note: LV2 has a non-standard config build dir
-                    script << "\"$CONFIGURATION_BUILD_DIR/../"
-                            + Project::getLV2FileWriterName()
-                            + "\" \"$CONFIGURATION_BUILD_DIR/$FULL_PRODUCT_NAME\"\n";
+                    script.run ("codesign --verbose=4 --force --sign -", doubleQuoted ("${CONFIGURATION_BUILD_DIR}/${EXECUTABLE_NAME}"))
+                          .insertLine()
+                          .run (doubleQuoted ("${CONFIGURATION_BUILD_DIR}/../" + Project::getLV2FileWriterName()),
+                                doubleQuoted ("${CONFIGURATION_BUILD_DIR}/${EXECUTABLE_NAME}"));
                 }
                 else if (target->type == XcodeTarget::VST3PlugIn)
                 {
-                    script << "\"$CONFIGURATION_BUILD_DIR/" << Project::getVST3FileWriterName() << "\" "
-                              "-create "
-                              "-version " << project.getVersionString().quoted() << " "
-                              "-path \"$CONFIGURATION_BUILD_DIR/$FULL_PRODUCT_NAME\" "
-                              "-output \"$CONFIGURATION_BUILD_DIR/$FULL_PRODUCT_NAME/Contents/Resources/moduleinfo.json\"\n";
+                    script.run (doubleQuoted ("${CONFIGURATION_BUILD_DIR}/" + Project::getVST3FileWriterName()), ">",
+                                doubleQuoted ("${CONFIGURATION_BUILD_DIR}/${WRAPPER_NAME}/Contents/Resources/moduleinfo.json"));
                 }
 
-                target->addShellScriptBuildPhase ("Update manifest", script);
+                target->addShellScriptBuildPhase ("Update manifest", script.toStringWithDefaultShellOptions());
             }
 
             target->addShellScriptBuildPhase ("Post-build script", getPostBuildScript());
@@ -2411,58 +2668,55 @@ private:
                 && target->type == XcodeTarget::UnityPlugIn)
                 embedUnityScript();
 
-            StringArray copyPluginScript;
+            ScriptBuilder copyPluginStepScript;
 
             for (ConstConfigIterator config (*this); config.next();)
             {
                 auto& xcodeConfig = static_cast<const XcodeBuildConfiguration&> (*config);
                 auto installPath = target->getInstallPathForConfiguration (xcodeConfig);
 
-                if (target->xcodeCopyToProductInstallPathAfterBuild && installPath.isNotEmpty())
-                {
-                    if (installPath.startsWith ("~"))
-                        installPath = installPath.replace ("~", "$(HOME)");
+                if (installPath.isEmpty() || ! target->xcodeCopyToProductInstallPathAfterBuild)
+                    continue;
 
-                    installPath = installPath.replace ("$(HOME)", "$HOME");
+                if (installPath.startsWith ("~"))
+                    installPath = installPath.replace ("~", "$(HOME)");
 
-                    const auto configGuard = String { configGuardTemplate }.replace ("$JUCE_CONFIG_NAME",
-                                                                                     config->getName());
+                installPath = installPath.replace ("$(HOME)", "${HOME}");
 
-                    if (target->type == XcodeTarget::Target::LV2PlugIn)
-                    {
-                        const auto copyScript = String { copyPluginScriptTemplate }
-                                                    .replace ("$JUCE_CONFIG_NAME", config->getName())
-                                                    .replace ("$JUCE_INSTALL_PATH", installPath)
-                                                    .replace ("$JUCE_PRODUCT_NAME", "${TARGET_BUILD_DIR##*/}")
-                                                    .replace ("$JUCE_SOURCE_BUNDLE", "${TARGET_BUILD_DIR}");
+                const auto sourcePlugin = target->type == XcodeTarget::Target::LV2PlugIn
+                                        ? "${TARGET_BUILD_DIR}"
+                                        : "${TARGET_BUILD_DIR}/${WRAPPER_NAME}";
 
-                        const auto signScript = String { adhocCodeSignTemplate }.replace ("$JUCE_FULL_PRODUCT_PATH",
-                                                                                          installPath + "${TARGET_BUILD_DIR##*/}/" + "$FULL_PRODUCT_NAME");
+                const auto copyScript = ScriptBuilder{}
+                        .set ("destinationPlugin", installPath + "/$(basename " + doubleQuoted (sourcePlugin) + ")")
+                        .remove ("${destinationPlugin}")
+                        .copy (sourcePlugin, "${destinationPlugin}");
 
+                const auto objectToSignTail = target->type == XcodeTarget::Target::LV2PlugIn
+                                            ? "/$(basename \"${TARGET_BUILD_DIR}\")/${EXECUTABLE_NAME}"
+                                            : "/${WRAPPER_NAME}";
 
-                        copyPluginScript.add (configGuard.replace ("$JUCE_GUARDED_SCRIPT", copyScript + signScript));
-                    }
-                    else
-                    {
-                        const auto copyScript = String { copyPluginScriptTemplate }
-                                                    .replace ("$JUCE_CONFIG_NAME", config->getName())
-                                                    .replace ("$JUCE_INSTALL_PATH", installPath)
-                                                    .replace ("$JUCE_PRODUCT_NAME", "${FULL_PRODUCT_NAME}")
-                                                    .replace ("$JUCE_SOURCE_BUNDLE", "${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}");
+                const auto codesignScript = ScriptBuilder{}
+                        .ifSet ("EXPANDED_CODE_SIGN_IDENTITY",
+                                ScriptBuilder{}.ifSet ("CODE_SIGN_ENTITLEMENTS",
+                                                       R"(entitlementsArg=(--entitlements "${CODE_SIGN_ENTITLEMENTS}"))")
+                                               .echo ("Signing Identity: " + doubleQuoted ("${EXPANDED_CODE_SIGN_IDENTITY_NAME}") )
+                                               .run ("codesign --verbose=4 --force --sign",
+                                                   doubleQuoted ("${EXPANDED_CODE_SIGN_IDENTITY}"),
+                                                   "${entitlementsArg[*]-}",
+                                                   "${OTHER_CODE_SIGN_FLAGS-}",
+                                                   doubleQuoted (installPath + objectToSignTail))
+                                               .toString());
 
-                        const auto signScript = String { adhocCodeSignTemplate }.replace ("$JUCE_FULL_PRODUCT_PATH",
-                                                                                          installPath + "$FULL_PRODUCT_NAME");
-
-                        copyPluginScript.add (configGuard.replace ("$JUCE_GUARDED_SCRIPT", copyScript + signScript));
-                    }
-                }
+                copyPluginStepScript.ifEqual (doubleQuoted ("${CONFIGURATION}"), doubleQuoted (config->getName()),
+                                              ScriptBuilder{}.insertScript (copyScript.toString())
+                                                             .insertLine()
+                                                             .insertScript (codesignScript.toString())
+                                                             .toString());
             }
 
-            if (! copyPluginScript.isEmpty())
-            {
-                copyPluginScript.insert (0, "set -e");
-                target->addShellScriptBuildPhase ("Plugin Copy Step", copyPluginScript.joinIntoString ("\n"));
-            }
+            if (! copyPluginStepScript.isEmpty())
+                target->addShellScriptBuildPhase ("Plugin Copy Step", copyPluginStepScript.toStringWithDefaultShellOptions());
 
             addTargetObject (*target);
         }
@@ -2550,7 +2804,7 @@ private:
 
         if (! build_tools::asArray (icons).isEmpty())
         {
-            iconFile = getTargetFolder().getChildFile ("Icon.icns");
+            iconFile = getTargetFolder().getChildFile (getAppIconNameOrElse ("AppIcon") + ".icns");
             build_tools::writeMacIcon (icons, iconFile);
         }
     }
@@ -2716,6 +2970,7 @@ private:
         else
         {
             s.set ("SDKROOT", "macosx" + config.getMacOSBaseSDKString());
+            s.set ("OTHER_CODE_SIGN_FLAGS", "--timestamp");
         }
 
         s.set ("ZERO_LINK", "NO");
@@ -2790,17 +3045,27 @@ private:
                 s.insert (0, "AudioUnit");
             }
 
-            for (auto& framework : s)
+            for (const auto& [frameworkList, kind] : { std::tuple (&s,                   FrameworkKind::normal),
+                                                       std::tuple (&xcodeWeakFrameworks, FrameworkKind::weak) })
             {
-                auto frameworkID = addFramework (framework);
+                auto cleaned = *frameworkList;
+                cleaned.trim();
+                cleaned.removeDuplicates (true);
 
-                // find all the targets that are referring to this object
-                for (auto& target : targets)
+                for (auto& framework : cleaned)
                 {
-                    if (xcodeFrameworks.contains (framework) || target->xcodeFrameworks.contains (framework))
+                    auto frameworkID = addFramework (framework, kind);
+
+                    // find all the targets that are referring to this object
+                    for (auto& target : targets)
                     {
-                        target->frameworkIDs.add (frameworkID);
-                        target->frameworkNames.add (framework);
+                        if (xcodeFrameworks.contains (framework)
+                            || xcodeWeakFrameworks.contains (framework)
+                            || target->xcodeFrameworks.contains (framework))
+                        {
+                            target->frameworkIDs.add (frameworkID);
+                            target->frameworkNames.add (framework);
+                        }
                     }
                 }
             }
@@ -3151,6 +3416,7 @@ private:
         FileOptions& withInhibitWarningsEnabled (bool e)                    { inhibitWarnings = e;       return *this; }
         FileOptions& withSkipPCHEnabled (bool e)                            { skipPCH = e;               return *this; }
         FileOptions& withXcodeTarget (XcodeTarget* t)                       { xcodeTarget = t;           return *this; }
+        FileOptions& withAttributeWeak (bool w)                             { weak = w;                  return *this; }
 
         String path;
         String fileRefID;
@@ -3160,6 +3426,7 @@ private:
         bool addToXcodeResources = false;
         bool inhibitWarnings = false;
         bool skipPCH = false;
+        bool weak = false;
         XcodeTarget* xcodeTarget = nullptr;
     };
 
@@ -3235,8 +3502,12 @@ private:
                     + (opts.skipPCH ? " -D" + BuildConfiguration::getSkipPrecompiledHeaderDefine() : String())).trim();
         }();
 
-        if (compilerFlags.isNotEmpty())
-            v.setProperty ("settings", "{ COMPILER_FLAGS = \"" + compilerFlags + "\"; }", nullptr);
+        const auto compilerFlagSetting = compilerFlags.isNotEmpty() ? (" COMPILER_FLAGS = \"" + compilerFlags + "\"; ") : "";
+        const auto attributeSetting = opts.weak ? " ATTRIBUTES = (Weak, ); " : "";
+        const auto settingsString = compilerFlagSetting + attributeSetting;
+
+        if (settingsString.isNotEmpty())
+            v.setProperty ("settings", "{" + settingsString + "}", nullptr);
 
         addObject (v);
 
@@ -3284,6 +3555,7 @@ private:
         options.hardenedRuntimeOptions          = getHardenedRuntimeOptions();
         options.appSandboxOptions               = getAppSandboxOptions();
         options.appSandboxTemporaryPaths        = getAppSandboxTemporaryPaths();
+        options.appSandboxExceptionIOKit        = getAppSandboxExceptionIOKitClasses();
 
         const auto entitlementsFile = getTargetFolder().getChildFile (target.getEntitlementsFilename());
         build_tools::overwriteFileIfDifferentOrThrow (entitlementsFile, options.getEntitlementsFileContent());
@@ -3347,7 +3619,13 @@ private:
         return {};
     }
 
-    String addFramework (const String& frameworkName) const
+    enum class FrameworkKind
+    {
+        normal,
+        weak,
+    };
+
+    String addFramework (const String& frameworkName, FrameworkKind kind) const
     {
         auto path = frameworkName;
         auto isRelativePath = path.startsWith ("../");
@@ -3364,7 +3642,8 @@ private:
         frameworkFileIDs.add (fileRefID);
 
         return addBuildFile (FileOptions().withPath (path)
-                                          .withFileRefID (fileRefID));
+                                          .withFileRefID (fileRefID)
+                                          .withAttributeWeak (kind == FrameworkKind::weak));
     }
 
     String addCustomFramework (String frameworkPath) const
@@ -3623,7 +3902,8 @@ private:
     {
         const auto assetsPath = build_tools::createXcassetsFolderFromIcons (getIcons(),
                                                                             getTargetFolder(),
-                                                                            project.getProjectFilenameRootString());
+                                                                            project.getProjectFilenameRootString(),
+                                                                            getAppIconNameOrElse ("AppIcon"));
         addFileReference (assetsPath.toUnixStyle());
         resourceIDs.add (addBuildFile (FileOptions().withRelativePath (assetsPath)));
         resourceFileRefs.add (createFileRefID (assetsPath));
@@ -3762,19 +4042,20 @@ private:
                                  extraFrameworksValue, frameworkSearchPathsValue, extraCustomFrameworksValue, embeddedFrameworksValue,
                                  postbuildCommandValue, prebuildCommandValue,
                                  duplicateAppExResourcesFolderValue, iosDeviceFamilyValue, iPhoneScreenOrientationValue,
-                                 iPadScreenOrientationValue, customXcodeResourceFoldersValue, customXcassetsFolderValue,
+                                 iPadScreenOrientationValue, iconComposerIconValue, customXcodeResourceFoldersValue, customXcassetsFolderValue,
                                  appSandboxValue, appSandboxInheritanceValue, appSandboxOptionsValue,
                                  appSandboxHomeDirROValue, appSandboxHomeDirRWValue, appSandboxAbsDirROValue, appSandboxAbsDirRWValue,
+                                 appSandboxExceptionIOKitValue,
                                  hardenedRuntimeValue, hardenedRuntimeOptionsValue,
                                  microphonePermissionNeededValue, microphonePermissionsTextValue,
                                  cameraPermissionNeededValue, cameraPermissionTextValue,
                                  bluetoothPermissionNeededValue, bluetoothPermissionTextValue,
                                  sendAppleEventsPermissionNeededValue, sendAppleEventsPermissionTextValue,
+                                 localNetworkPermissionNeededValue, localNetworkPermissionTextValue,
                                  uiFileSharingEnabledValue, uiSupportsDocumentBrowserValue, uiStatusBarHiddenValue, uiRequiresFullScreenValue, documentExtensionsValue, iosInAppPurchasesValue,
                                  iosContentSharingValue, iosBackgroundAudioValue, iosBackgroundBleValue, iosPushNotificationsValue, iosAppGroupsValue, iCloudPermissionsValue,
                                  networkingMulticastValue, iosDevelopmentTeamIDValue, iosAppGroupsIDValue, keepCustomXcodeSchemesValue, useHeaderMapValue, customLaunchStoryboardValue,
                                  exporterBundleIdentifierValue, suppressPlistResourceUsageValue, useLegacyBuildSystemValue, buildNumber;
-    ScopedMessageBox messageBox;
 
     struct SandboxFileAccessProperty
     {
@@ -3789,6 +4070,12 @@ private:
         { appSandboxAbsDirROValue,  "App sandbox temporary exception: absolute path read only file access",   "absolute-path.read-only" },
         { appSandboxAbsDirRWValue,  "App sandbox temporary exception: absolute path read/write file access",  "absolute-path.read-write" }
     };
+
+    bool userAcknowledgedInvalidPostBuildScript = false;
+    bool userAcknowledgedDefunctIOKitSetting    = false;
+
+    ErasedScopeGuard messageBoxQueueListenerScope;
+    ScopedMessageBox messageBox;
 
     JUCE_DECLARE_NON_COPYABLE (XcodeProjectExporter)
 };

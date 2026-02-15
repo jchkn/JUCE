@@ -1,26 +1,36 @@
 /*
   ==============================================================================
 
-   This file is part of the JUCE library.
-   Copyright (c) 2022 - Raw Material Software Limited
+   This file is part of the JUCE framework.
+   Copyright (c) Raw Material Software Limited
 
-   JUCE is an open source library subject to commercial or open-source
+   JUCE is an open source framework subject to commercial or open source
    licensing.
 
-   The code included in this file is provided under the terms of the ISC license
-   http://www.isc.org/downloads/software-support-policy/isc-license. Permission
-   To use, copy, modify, and/or distribute this software for any purpose with or
-   without fee is hereby granted provided that the above copyright notice and
-   this permission notice appear in all copies.
+   By downloading, installing, or using the JUCE framework, or combining the
+   JUCE framework with any other source code, object code, content or any other
+   copyrightable work, you agree to the terms of the JUCE End User Licence
+   Agreement, and all incorporated terms including the JUCE Privacy Policy and
+   the JUCE Website Terms of Service, as applicable, which will bind you. If you
+   do not agree to the terms of these agreements, we will not license the JUCE
+   framework to you, and you must discontinue the installation or download
+   process and cease use of the JUCE framework.
 
-   JUCE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES, WHETHER
-   EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR PURPOSE, ARE
-   DISCLAIMED.
+   JUCE End User Licence Agreement: https://juce.com/legal/juce-8-licence/
+   JUCE Privacy Policy: https://juce.com/juce-privacy-policy
+   JUCE Website Terms of Service: https://juce.com/juce-website-terms-of-service/
+
+   Or:
+
+   You may also use this code under the terms of the AGPLv3:
+   https://www.gnu.org/licenses/agpl-3.0.en.html
+
+   THE JUCE FRAMEWORK IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL
+   WARRANTIES, WHETHER EXPRESSED OR IMPLIED, INCLUDING WARRANTY OF
+   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, ARE DISCLAIMED.
 
   ==============================================================================
 */
-
-#include "juce_CFHelpers_mac.h"
 
 /* This file contains a few helper functions that are used internally but which
    need to be kept away from the public headers because they use obj-C symbols.
@@ -76,139 +86,74 @@ inline NSURL* createNSURLFromFile (const File& f)
 
 inline NSArray* createNSArrayFromStringArray (const StringArray& strings)
 {
-    auto array = [[NSMutableArray alloc] init];
+    auto array = [[NSMutableArray alloc] initWithCapacity: (NSUInteger) strings.size()];
 
-    for (auto string: strings)
-        [array addObject:juceStringToNS (string)];
+    for (const auto& string: strings)
+        [array addObject: juceStringToNS (string)];
 
     return [array autorelease];
 }
 
-inline NSArray* varArrayToNSArray (const var& varToParse);
-
-inline NSDictionary* varObjectToNSDictionary (const var& varToParse)
+inline NSData* varToJsonData (const var& varToParse)
 {
-    auto dictionary = [NSMutableDictionary dictionary];
+    return [juceStringToNS (JSON::toString (varToParse)) dataUsingEncoding: NSUTF8StringEncoding];
+}
 
-    if (varToParse.isObject())
-    {
-        auto* dynamicObject = varToParse.getDynamicObject();
+inline var jsonDataToVar (NSData* jsonData)
+{
+    auto* jsonString = [[NSString alloc] initWithData: jsonData
+                                             encoding: NSUTF8StringEncoding];
 
-        auto& properties = dynamicObject->getProperties();
+    jassert (jsonString != nullptr);
+    return JSON::parse (nsStringToJuce ([jsonString autorelease]));
+}
 
-        for (int i = 0; i < properties.size(); ++i)
-        {
-            auto* keyString = juceStringToNS (properties.getName (i).toString());
+// If for any reason the given var cannot be converted into a valid dictionary
+// an empty dictionary will be returned instead
+inline NSDictionary* varToNSDictionary (const var& varToParse)
+{
+    NSError* error { nullptr };
+    NSDictionary* dictionary = [NSJSONSerialization JSONObjectWithData: varToJsonData (varToParse)
+                                                               options: NSJSONReadingMutableContainers
+                                                                 error: &error];
 
-            const var& valueVar = properties.getValueAt (i);
-
-            if (valueVar.isObject())
-            {
-                auto* valueDictionary = varObjectToNSDictionary (valueVar);
-
-                [dictionary setObject: valueDictionary forKey: keyString];
-            }
-            else if (valueVar.isArray())
-            {
-                auto* valueArray = varArrayToNSArray (valueVar);
-
-                [dictionary setObject: valueArray forKey: keyString];
-            }
-            else
-            {
-                auto* valueString = juceStringToNS (valueVar.toString());
-
-                [dictionary setObject: valueString forKey: keyString];
-            }
-        }
-    }
+    if (dictionary == nullptr || error != nullptr)
+        return @{};
 
     return dictionary;
 }
 
-inline NSArray* varArrayToNSArray (const var& varToParse)
+inline NSData* jsonObjectToData (const NSObject* jsonObject)
 {
-    jassert (varToParse.isArray());
+    NSError* error { nullptr };
+    auto* jsonData = [NSJSONSerialization dataWithJSONObject: jsonObject
+                                                     options: 0
+                                                       error: &error];
 
-    if (! varToParse.isArray())
-        return nil;
+    jassert (error == nullptr);
+    jassert (jsonData != nullptr);
 
-    const auto* varArray = varToParse.getArray();
-
-    auto array = [NSMutableArray arrayWithCapacity: (NSUInteger) varArray->size()];
-
-    for (const auto& aVar : *varArray)
-    {
-        if (aVar.isObject())
-        {
-            auto* valueDictionary = varObjectToNSDictionary (aVar);
-
-            [array addObject: valueDictionary];
-        }
-        else if (aVar.isArray())
-        {
-            auto* valueArray = varArrayToNSArray (aVar);
-
-            [array addObject: valueArray];
-        }
-        else
-        {
-            auto* valueString = juceStringToNS (aVar.toString());
-
-            [array addObject: valueString];
-        }
-    }
-
-    return array;
+    return jsonData;
 }
 
-var nsObjectToVar (NSObject* array);
-
-inline var nsDictionaryToVar (NSDictionary* dictionary)
+inline var nsDictionaryToVar (const NSDictionary* dictionary)
 {
-    DynamicObject::Ptr dynamicObject (new DynamicObject());
-
-    for (NSString* key in dictionary)
-        dynamicObject->setProperty (nsStringToJuce (key), nsObjectToVar ([dictionary objectForKey: key]));
-
-    return var (dynamicObject.get());
+    return jsonDataToVar (jsonObjectToData (dictionary));
 }
 
-inline var nsArrayToVar (NSArray* array)
-{
-    Array<var> resultArray;
-
-    for (id value in array)
-        resultArray.add (nsObjectToVar (value));
-
-    return var (resultArray);
-}
-
-inline var nsObjectToVar (NSObject* obj)
-{
-    if ([obj isKindOfClass: [NSString class]])          return nsStringToJuce ((NSString*) obj);
-    else if ([obj isKindOfClass: [NSNumber class]])     return nsStringToJuce ([(NSNumber*) obj stringValue]);
-    else if ([obj isKindOfClass: [NSDictionary class]]) return nsDictionaryToVar ((NSDictionary*) obj);
-    else if ([obj isKindOfClass: [NSArray class]])      return nsArrayToVar ((NSArray*) obj);
-    else
-    {
-        // Unsupported yet, add here!
-        jassertfalse;
-    }
-
-    return {};
-}
-
-#if JUCE_MAC
+// NSRect is just another name for CGRect, but CGRect is available on iOS *and* macOS.
+// Use makeCGRect below.
 template <typename RectangleType>
-NSRect makeNSRect (const RectangleType& r) noexcept
+CGRect makeNSRect (const RectangleType& r) noexcept = delete;
+
+template <typename RectangleType>
+CGRect makeCGRect (const RectangleType& r) noexcept
 {
-    return NSMakeRect (static_cast<CGFloat> (r.getX()),
+    return CGRectMake (static_cast<CGFloat> (r.getX()),
                        static_cast<CGFloat> (r.getY()),
                        static_cast<CGFloat> (r.getWidth()),
                        static_cast<CGFloat> (r.getHeight()));
 }
-#endif
 
 #if JUCE_INTEL
  template <typename T>
@@ -238,7 +183,11 @@ template <typename SuperType, typename ReturnType, typename... Params>
 inline ReturnType ObjCMsgSendSuper (id self, SEL sel, Params... params)
 {
     using SuperFn = ReturnType (*) (struct objc_super*, SEL, Params...);
+
+    // objc_msgSendSuper_stret is declared to return void, but will actually return non-void
+    JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wcast-function-type-mismatch")
     const auto fn = reinterpret_cast<SuperFn> (MetaSuperFn<ReturnType>::value);
+    JUCE_END_IGNORE_WARNINGS_GCC_LIKE
 
     objc_super s = { self, [SuperType class] };
     return fn (&s, sel, params...);
@@ -376,6 +325,16 @@ struct ObjCClass
             objc_disposeClassPair (cls);
     }
 
+    ObjCClass (ObjCClass&& other) noexcept
+        : cls (std::exchange (other.cls, {})) {}
+
+    ObjCClass& operator= (ObjCClass&& other) noexcept
+    {
+        auto tmp = std::move (other);
+        std::swap (tmp.cls, cls);
+        return *this;
+    }
+
     void registerClass()
     {
         if (cls != nil)
@@ -401,7 +360,11 @@ struct ObjCClass
     void addMethod (SEL selector, Result (*callbackFn) (id, SEL, Args...))
     {
         const auto s = detail::makeCompileTimeStr (@encode (Result), @encode (id), @encode (SEL), @encode (Args)...);
+
+        JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wcast-function-type-mismatch")
         [[maybe_unused]] const auto b = class_addMethod (cls, selector, (IMP) callbackFn, s.data());
+        JUCE_END_IGNORE_WARNINGS_GCC_LIKE
+
         jassert (b);
     }
 
@@ -429,7 +392,7 @@ private:
 };
 
 //==============================================================================
-#ifndef DOXYGEN
+/** @cond */
 template <class JuceClass>
 struct ObjCLifetimeManagedClass : public ObjCClass<NSObject>
 {
@@ -471,7 +434,7 @@ struct ObjCLifetimeManagedClass : public ObjCClass<NSObject>
 
 template <typename Class>
 ObjCLifetimeManagedClass<Class> ObjCLifetimeManagedClass<Class>::objCLifetimeManagedClass;
-#endif
+/** @endcond */
 
 // this will return an NSObject which takes ownership of the JUCE instance passed-in
 // This is useful to tie the life-time of a juce instance to the life-time of an NSObject
@@ -505,10 +468,7 @@ constexpr auto getSignature (Result (Class::*) (Args...) const) { return Signatu
 template <typename Class, typename Fn, typename Result, typename... Params>
 auto createObjCBlockImpl (Class* object, Fn func, Signature<Result (Params...)>)
 {
-    __block auto _this = object;
-    __block auto _func = func;
-
-    return [[^Result (Params... params) { return (_this->*_func) (params...); } copy] autorelease];
+    return [[^Result (Params... params) { return (object->*func) (params...); } copy] autorelease];
 }
 } // namespace detail
 
@@ -624,5 +584,95 @@ private:
     id object = nullptr;
     Class klass = nullptr;
 };
+
+//==============================================================================
+/*
+    Forwards NSNotificationCenter callbacks to a std::function<void()>.
+*/
+class FunctionNotificationCenterObserver
+{
+public:
+    FunctionNotificationCenterObserver (NSNotificationName notificationName,
+                                        id objectToObserve,
+                                        std::function<void()> callback)
+        : onNotification (std::move (callback)),
+          observer (observerObject.get(), getSelector(), notificationName, objectToObserve)
+    {}
+
+private:
+    static SEL getSelector()
+    {
+        JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wundeclared-selector")
+        return @selector (notificationFired:);
+        JUCE_END_IGNORE_WARNINGS_GCC_LIKE
+    }
+
+    std::function<void()> onNotification;
+
+    NSUniquePtr<NSObject> observerObject
+    {
+        [this]
+        {
+            static auto observerClass = std::invoke ([]
+            {
+                ObjCClass<NSObject> k { "JUCEObserverClass_" };
+
+                k.addIvar<FunctionNotificationCenterObserver*> ("owner");
+
+                k.addMethod (getSelector(), [] (id self, SEL, NSNotification*)
+                {
+                    getIvar<FunctionNotificationCenterObserver*> (self, "owner")->onNotification();
+                });
+
+                k.registerClass();
+
+                return k;
+            });
+            auto* result = observerClass.createInstance();
+            object_setInstanceVariable (result, "owner", this);
+            return result;
+        }()
+    };
+
+    ScopedNotificationCenterObserver observer;
+
+    // Instances can't be copied or moved, because 'this' is stored as a member of the ObserverClass
+    // object.
+    JUCE_DECLARE_NON_COPYABLE (FunctionNotificationCenterObserver)
+    JUCE_DECLARE_NON_MOVEABLE (FunctionNotificationCenterObserver)
+};
+
+#if JUCE_IOS
+
+// Defines a function that will check the requested version both at
+// build time, and, if necessary, at runtime.
+// The function's first template argument is a trait type containing
+// two static member functions named newFn and oldFn.
+// When the deployment target is at least equal to major.minor,
+// newFn will be selected at compile time.
+// When the build sdk does not support iOS SDK major.minor,
+// oldFn will be selected at compile time.
+// Otherwise, the OS version will be checked at runtime and newFn
+// will be called if the OS version is at least equal to major.minor,
+// otherwise oldFn will be called.
+#define JUCE_DEFINE_IOS_VERSION_CHECKER_FOR_VERSION(major, minor)           \
+    template <typename Trait, typename... Args>                             \
+    auto ifelse_ ## major ## _ ## minor (Args&&... args)                    \
+    {                                                                       \
+        constexpr auto fullVersion = major * 10'000 + minor * 100;          \
+        if constexpr (fullVersion <= __IPHONE_OS_VERSION_MIN_REQUIRED)      \
+            return Trait::newFn (std::forward<Args> (args)...);             \
+        else if constexpr (__IPHONE_OS_VERSION_MAX_ALLOWED < fullVersion)   \
+            return Trait::oldFn (std::forward<Args> (args)...);             \
+        else if (@available (iOS major ## . ## minor, *))                   \
+            return Trait::newFn (std::forward<Args> (args)...);             \
+        else                                                                \
+            return Trait::oldFn (std::forward<Args> (args)...);             \
+    }
+
+JUCE_DEFINE_IOS_VERSION_CHECKER_FOR_VERSION (14, 0)
+JUCE_DEFINE_IOS_VERSION_CHECKER_FOR_VERSION (17, 0)
+
+#endif
 
 } // namespace juce
