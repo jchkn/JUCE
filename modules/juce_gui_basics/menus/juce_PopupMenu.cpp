@@ -1217,6 +1217,12 @@ struct MenuWindow  : public Component
     {
         if (currentChild != nullptr && canBeTriggered (currentChild->item))
         {
+            //CK Fix: Prevent accedenlty closing and selecting the first item; after just the menu has created 
+            if (Time::getMillisecondCounter() < windowCreationTime + 500)
+            {
+                return;
+            };
+
             dismissMenu (&currentChild->item);
         }
     }
