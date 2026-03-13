@@ -32,36 +32,37 @@
   ==============================================================================
 */
 
-namespace juce::detail
+namespace juce
 {
 
-struct FontRendering
-{
-    FontRendering() = delete;
+/** A type used to store years with double precision. */
+using Years = std::chrono::duration<double, std::ratio<31556952>>;
 
-    /*
-        Returns the total height of this font, in pixels, subject to the ascent and descent override
-        values.
+/** A type used to store months with double precision. */
+using Months = std::chrono::duration<double, std::ratio<2629746>>;
 
-        If no ascent or descent override is set, this will return the same value as getHeight().
-    */
-    static float getEffectiveHeight (const Font& font)
-    {
-        const auto ptr = font.getTypefacePtr();
+/** A type used to store weeks with double precision. */
+using Weeks = std::chrono::duration<double, std::ratio<604800>>;
 
-        if (ptr == nullptr)
-            return font.getHeight();
+/** A type used to store days with double precision. */
+using Days = std::chrono::duration<double, std::ratio<86400>>;
 
-        const auto original = ptr->getMetrics (font.getMetricsKind()).heightToPoints;
-        const auto actual = font.getHeightToPointsFactor();
+/** A type used to store hours with double precision. */
+using Hours = std::chrono::duration<double, std::ratio<3600>>;
 
-        const auto sanity = 1e-6 < original && original < 1e6 && actual < 1e6;
+/** A type used to store minutes with double precision. */
+using Minutes = std::chrono::duration<double, std::ratio<60>>;
 
-        if (! sanity)
-            return font.getHeight();
+/** A type used to store seconds with double precision. */
+using Seconds = std::chrono::duration<double, std::ratio<1>>;
 
-        return font.getHeight() * actual / original;
-    }
-};
+/** A type used to store milliseconds with double precision. */
+using Milliseconds = std::chrono::duration<double, std::milli>;
 
-} // namespace juce::detail
+/** A type used to store microseconds with double precision. */
+using Microseconds = std::chrono::duration<double, std::micro>;
+
+/** A type used to store nanoseconds with double precision. */
+using Nanoseconds = std::chrono::duration<double, std::nano>;
+
+} // namespace juce
