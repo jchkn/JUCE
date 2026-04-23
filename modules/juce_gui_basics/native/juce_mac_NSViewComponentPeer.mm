@@ -2442,7 +2442,7 @@ private:
         {
             jassert (! owner->inBecomeKeyWindow);
 
-            const ScopedValueSetter scope { owner->inBecomeKeyWindow, true };
+            const ScopedValueSetter<bool> scope { owner->inBecomeKeyWindow, true };
             
             if (owner->canBecomeKeyWindow())
             {
